@@ -28,22 +28,30 @@ def get_data():
     return pos
 
 
-data = get_data()
-p = Plot3D(data, width=2.0, color='red',
-           edge_color='w', symbol='o', face_color=(0.2, 0.2, 1, 0.8),
-           parent=view.scene)
+data1 = get_data()
+p1 = Plot3D(data1, width=2.0, color='green',
+            edge_color='w', symbol='o', face_color=(0.2, 0.2, 1, 0.8),
+            parent=view.scene)
+data2 = get_data()
+p2 = Plot3D(data2, width=2.0, color='red',
+            edge_color='w', symbol='o', face_color=(0.2, 0.2, 1, 0.8),
+            parent=view.scene)
 
 
 # CHOMP covariant descent.
 _, fp, _ = obj.ffp_smoothness()
-K = obj.slow_fdiff_1(len(data)-2)
+K = obj.slow_fdiff_1(len(data1)-2)
 Ainv = np.linalg.inv(K.T.dot(K))
 def update(ev):
-    qq = fp(data)
-    data[1:-1] -= 0.01*Ainv.dot(qq[1:-1])
-    # data[1:-1] -= 0.01*(qq[1:-1])
-    p.set_data(data)
-    p.update()
+    qq1 = fp(data1)
+    data1[1:-1] -= 0.01*Ainv.dot(qq1[1:-1])
+    p1.set_data(data1)
+    p1.update()
+
+    qq2 = fp(data2)
+    data2[1:-1] -= 0.01 * qq2[1:-1]
+    p2.set_data(data2)
+    p2.update()
 
 
 timer = app.Timer(connect=update, interval=0.04)

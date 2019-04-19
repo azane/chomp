@@ -15,21 +15,28 @@ def slow_fdiff_1(n: int) -> np.ndarray:
 def slow_naive_prior(q: np.ndarray, dt: float) -> float:
     assert q.ndim == 2
     tot = 0.
+    hh = []
     for i, qq in enumerate(q[:-1]):
-        tot += np.linalg.norm((q[i+1] - qq) / dt)
-    return .5 * tot
+        dd = (q[i+1] - qq) / dt
+        # tot += np.inner(dd, dd)
+        hh.append(dd)
+    return np.array(hh)
+    # return .5 * tot
 
 
 def slow_fdmat_prior(q: np.ndarray, dt: float) -> float:
     assert q.ndim == 2
 
-    e = np.copy(q)
-    e[1:-1, ...] = 0
+    # Set up boundary condition vector.
+    e = np.zeros(q[1:].shape)
+    e[0] = -q[0]
+    e[-1] = q[-1]
 
-    K = slow_fdiff_1(len(q)) * dt
-
-    dd = K.dot(q) + e
-    return .5 * np.linalg.norm(dd)
+    # Difference over all but boundaries.
+    K = slow_fdiff_1(len(q)-2) * dt
+    dd = K.dot(q[1:-1]) + e
+    return dd
+    # return .5 * np.tensordot(dd, dd)
 
 
 def slow_quad_prior(q: np.ndarray, dt: float) -> float:

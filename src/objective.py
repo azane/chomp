@@ -1,6 +1,7 @@
 import numpy as np
 import theano as th
 import sympy as sm
+import theano.tensor as tt
 
 
 def slow_fdiff_1(n: int) -> np.ndarray:
@@ -33,3 +34,25 @@ def slow_fdmat_prior(q: np.ndarray) -> float:
     K = slow_fdiff_1(len(q)-2)
     dd = K.dot(q[1:-1]) + e
     return .5 * np.tensordot(dd, dd)
+
+
+def th_smoothness(q: tt.TensorVariable=None):
+    if q is None:
+        q = tt.dmatrix("q")  # type: tt.TensorVariable
+
+    dd = q[1:] - q[:-1]
+    y = .5 * tt.tensordot(dd, dd)
+
+    return y, q
+
+
+def ffp_smoothness(q: tt.TensorVariable=None):
+    y, q = th_smoothness(q)
+
+    f = th.function(inputs=[q], outputs=y)
+
+    dfdq = th.grad(cost=y, wrt=q)
+    fp = th.function(inputs=[q], outputs=dfdq)
+
+    return f, fp, q
+

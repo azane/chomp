@@ -37,10 +37,10 @@ p = Plot3D(data, width=2.0, color='red',
 # CHOMP covariant descent.
 _, fp, _ = obj.ffp_smoothness()
 K = obj.slow_fdiff_1(len(data)-2)
-A = K.T.dot(K)
+Ainv = np.linalg.inv(K.T.dot(K))
 def update(ev):
     qq = fp(data)
-    data[1:-1] -= 0.01*A.dot(qq[1:-1])
+    data[1:-1] -= 0.01*Ainv.dot(qq[1:-1])
     # data[1:-1] -= 0.01*(qq[1:-1])
     p.set_data(data)
     p.update()

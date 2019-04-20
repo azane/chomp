@@ -3,6 +3,8 @@ import sys
 from vispy import app, visuals, scene
 import src.objective as obj
 
+# Adapted from https://github.com/vispy/vispy/blob/master/examples/basics/visuals/line_plot3d.py by Andy Zane
+
 # build visuals
 Plot3D = scene.visuals.create_visual_node(visuals.LinePlotVisual)
 

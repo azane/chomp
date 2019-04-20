@@ -3,6 +3,9 @@ import theano.tensor as tt
 import numpy as np
 from src.th_matmul import matmul
 
+# From my own SO question/answer from a few years ago. Ha!
+#  https://stackoverflow.com/questions/42169776/numpy-matmul-in-theano
+
 
 def test_th_matmul():
     vlist = []

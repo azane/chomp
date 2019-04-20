@@ -1,10 +1,4 @@
-
-
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) Vispy Development Team. All Rights Reserved.
-# Distributed under the (new) BSD License. See LICENSE.txt for more info.
-# -----------------------------------------------------------------------------
+# Adapted from https://github.com/vispy/vispy/blob/master/vispy/visuals/sphere.py by Andy Zane
 
 from vispy.geometry import create_sphere
 from vispy.visuals.mesh import MeshVisual
@@ -21,6 +15,7 @@ class EllipseVisual(CompoundVisual):
     ----------
     mu : the mean of the ellipse
     cov : the covariance of the ellipse
+    std : the standard deviation at which to plot the surface.
     cols : int
         Number of cols that make up the sphere mesh
         (for method='latitude' and 'cube').
@@ -55,6 +50,9 @@ class EllipseVisual(CompoundVisual):
         mesh = create_sphere(rows, cols, depth, radius=std,
                              subdivisions=subdivisions, method=method)
 
+        # Take the spherical mesh and project through the covariance, like you do
+        #  when sampling a multivariate gaussian.
+        # https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Drawing_values_from_the_distribution
         A = np.linalg.cholesky(cov)
         verts = mesh.get_vertices()
         verts2 = np.matmul(A[None, :, :], verts[:, :, None])

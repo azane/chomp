@@ -2,6 +2,9 @@ import theano as th
 import theano.tensor as tt
 import numpy as np
 
+# From my own SO question/answer from a few years ago. Ha!
+#  https://stackoverflow.com/questions/42169776/numpy-matmul-in-theano
+
 
 def matmul(a: tt.TensorType, b: tt.TensorType, _left=False):
     """Replicates the functionality of numpy.matmul, except that

@@ -4,6 +4,8 @@ import numpy as np
 import time
 
 
+# Couple this test with the visualization gm_obstacle_cost.
+
 def test_gm_distance_field():
 
     x = np.random.rand(100, 3)

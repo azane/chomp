@@ -22,6 +22,7 @@ for _ in range(len(mu)):
     mat = np.random.rand(3, 3) - .5
     mat += mat.T
     mat = mat.dot(mat)
+    mat += np.diag(np.random.rand(3)*2.)
     cov.append(mat)
 cov = np.array(cov)
 prec = np.linalg.inv(cov)

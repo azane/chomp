@@ -2,6 +2,7 @@ import numpy as np
 import theano as th
 import sympy as sm
 import theano.tensor as tt
+from typing import *
 
 
 def slow_fdiff_1(n: int) -> np.ndarray:
@@ -40,6 +41,7 @@ def th_smoothness(q: tt.TensorVariable=None):
     if q is None:
         q = tt.dmatrix("q")  # type: tt.TensorVariable
 
+    # Backward differences.
     dd = q[1:] - q[:-1]
     y = .5 * tt.tensordot(dd, dd)
 
@@ -57,5 +59,38 @@ def ffp_smoothness(q: tt.TensorVariable=None):
     return f, fp, q
 
 
+def th_obstacle(q: tt.TensorVariable, u: tt.TensorConstant,
+                xf: Callable[[tt.TensorVariable, tt.TensorVariable], tt.Tensor],
+                cf: Callable[[tt.Tensor], tt.Tensor]):
+    """
+
+    :param q: The configurations over the trajectory, in order of time.
+    :param u: Points on the discretized robot body.
+    :param xf: A function mapping workspace config and body to workspace.
+    :param cf: A function mapping workspace to obstacle costs.
+    """
+
+    # Pass our configuration and robot body to get workspace coords.
+    xqu = xf(q, u)  # .shape == (Q, U, D)
+
+    # Pass our workspace coords to get our obstacle cost function.
+    cxqu = cf(xqu)  # .shape == (Q, U)
+
+    # Average of adjacent t for each robot element.
+    cxqu_cd = .5 * (cxqu[1:, :, :] + cxqu[:-1, :, :])  # .shape == (Q-1, U)
+
+    # Backward differences...
+    xqu_bd = xqu[1:] - xqu[:-1]  # .shape == (Q-1, U, D)
+
+    return tt.sum(cxqu_cd.dimshuffle(0, 1, 'x') * xqu_bd), q
 
 
+def ffp_obstacle(q, *args, **kwargs):
+    y, q = th_obstacle(q, *args, **kwargs)
+
+    f = th.function(inputs=[q], outputs=y)
+
+    dfdq = th.grad(cost=y, wrt=q)
+    fp = th.function(inputs=[q], outputs=dfdq)
+
+    return f, fp, q

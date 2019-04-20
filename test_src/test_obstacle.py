@@ -19,7 +19,7 @@ def test_gm_distance_field():
     ttx = tt.dmatrix('x')
     ttmu = tt.constant(mu, 'mu')
     ttprec = tt.constant(prec, 'prec')
-    f = obs.f_gm_distance_field(ttx, ttmu, ttprec)
+    f = obs.f_gm_obstacle_cost(ttx, ttmu, ttprec)
     thd = f(x)
 
     # t1 = []

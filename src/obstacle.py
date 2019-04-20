@@ -3,6 +3,8 @@ import theano as th
 import theano.tensor as tt
 from src.th_matmul import matmul
 
+# Code defining obstacle cost functions, distance fields, etc.
+
 
 def np_gm_obstacle_cost(x: np.ndarray, mu: np.ndarray, prec: np.ndarray):
 
@@ -45,5 +47,21 @@ def th_gm_obstacle_cost(x: tt.TensorVariable, mu: tt.TensorConstant, prec: tt.Te
     return tt.exp(-.5*mux_prec_mux).dimshuffle(1, 0) # .shape == N, K
 
 
-def f_gm_distance_field(x: tt.TensorVariable, mu: tt.TensorConstant, prec: tt.TensorConstant):
+def th_gm_obstacle_cost_wrap(mu: tt.TensorConstant, prec: tt.TensorConstant):
+
+    def wrap(x: tt.TensorVariable):
+        # Flatten all but the last dimension.
+        x_ = x.reshape(shape=(-1, x.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
+
+        # Get result and sum over all the obstacle gradients.
+        res = th_gm_obstacle_cost(x_, mu, prec)  # .shape == (Q*U, K)
+        tt.sum(res, axis=-1)  # .shape == (Q*U,)
+
+        # Restore original shape, but without workspace dimension axis (the last one)
+        return res.reshape(shape=(x.shape[:-1]), ndim=x.ndim-1)
+
+    return wrap
+
+
+def f_gm_obstacle_cost(x: tt.TensorVariable, mu: tt.TensorConstant, prec: tt.TensorConstant):
     return th.function([x], th_gm_obstacle_cost(x, mu, prec))

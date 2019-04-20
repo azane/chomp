@@ -11,7 +11,7 @@ def test_gm_distance_field():
     cov += np.transpose(cov, (0, 2, 1))
     prec = np.linalg.inv(cov)
 
-    npd = obs.np_gm_distance_field(x, mu, prec)
+    npd = obs.np_gm_obstacle_cost(x, mu, prec)
 
     ttx = tt.dmatrix('x')
     ttmu = tt.constant(mu, 'mu')

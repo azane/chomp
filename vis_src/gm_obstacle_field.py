@@ -16,20 +16,32 @@ canvas = vispy.scene.SceneCanvas(keys='interactive', show=True)
 view = canvas.central_widget.add_view()
 
 # generate data
-pos = np.random.normal(size=(100000, 3), scale=0.2)
+pos = np.random.normal(size=(1000000, 3), scale=3.)
 colors = np.ones((len(pos), 4), dtype=float)
 
 # Adjust transparency via the gm obstacle field.
-mu = np.random.rand(5, 3)
-cov = np.random.rand(5, 3, 3)
-cov += np.transpose(cov, (0, 2, 1))
+mu = np.random.normal(scale=1., size=(5, 3))
+cov = []
+for _ in range(len(mu)):
+    mat = np.random.rand(3, 3) - .5
+    mat += mat.T
+    mat = mat.dot(mat)
+    cov.append(mat)
+cov = np.array(cov)
 prec = np.linalg.inv(cov)
-obs.np_gm_distance_field(pos, mu, cov)
-colors[:, -1] = .3
+# prec = np.repeat(np.diag([1., .1, .6])[None, :, :], repeats=5, axis=0)
+ci = 0
+colors[:, ci] = .606 - np.max(obs.np_gm_obstacle_cost(pos, mu, prec), axis=1)
+colors[:, ci] /= np.abs(colors[:, ci]) * -1.
+colors[:, ci] += 1.
+colors[:, ci] /= 2
+# colors[:, -1] = .3
+pos = pos[colors[:, ci].astype(bool), ...]
+colors = colors[colors[:, ci].astype(bool), ...]
 
 # create scatter object and fill in the data
 scatter = visuals.Markers()
-scatter.set_data(pos, edge_color=None, face_color=colors, size=5)
+scatter.set_data(pos, edge_color=colors, face_color=colors, size=5)
 
 view.add(scatter)
 

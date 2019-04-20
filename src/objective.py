@@ -56,3 +56,6 @@ def ffp_smoothness(q: tt.TensorVariable=None):
 
     return f, fp, q
 
+
+
+

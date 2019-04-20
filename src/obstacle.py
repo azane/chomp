@@ -3,6 +3,7 @@ import theano as th
 import theano.tensor as tt
 from src.th_matmul import matmul
 
+
 def np_gm_obstacle_cost(x: np.ndarray, mu: np.ndarray, prec: np.ndarray):
 
     # Shapes, N = num points, K = num gaussians, D = dimensionality.

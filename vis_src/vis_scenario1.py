@@ -8,7 +8,6 @@ import vispy
 import vispy.scene
 import vispy.visuals
 from vis_src.ellipse import Ellipse
-from collections import deque
 
 
 """

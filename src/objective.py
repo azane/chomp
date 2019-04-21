@@ -60,7 +60,7 @@ def ffp_smoothness(q: tt.TensorVariable=None):
 
 
 def th_obstacle(q: tt.TensorVariable, u: tt.TensorConstant,
-                xf: Callable[[tt.TensorVariable, tt.TensorVariable], tt.Tensor],
+                xf: Callable[[tt.TensorVariable, tt.TensorConstant], tt.Tensor],
                 cf: Callable[[tt.Tensor], tt.Tensor]):
     """
 
@@ -77,7 +77,7 @@ def th_obstacle(q: tt.TensorVariable, u: tt.TensorConstant,
     cxqu = cf(xqu)  # .shape == (Q, U)
 
     # Average of adjacent t for each robot element.
-    cxqu_cd = .5 * (cxqu[1:, :, :] + cxqu[:-1, :, :])  # .shape == (Q-1, U)
+    cxqu_cd = .5 * (cxqu[1:, :] + cxqu[:-1, :])  # .shape == (Q-1, U)
 
     # Backward differences...
     xqu_bd = xqu[1:] - xqu[:-1]  # .shape == (Q-1, U, D)

@@ -43,7 +43,7 @@ class EllipseVisual(CompoundVisual):
         The `Color` to use when drawing the sphere edges. If `None`, then no
         sphere edges are drawn.
     """
-    def __init__(self, mu, cov, std=2., cols=30, rows=30, depth=30, subdivisions=3,
+    def __init__(self, mu, cov, std=2., cols=15, rows=15, depth=15, subdivisions=3,
                  method='latitude', vertex_colors=None, face_colors=None,
                  color=(0.5, 0.5, 1, 1), edge_color=None, **kwargs):
 

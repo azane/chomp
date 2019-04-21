@@ -30,9 +30,8 @@ def th_gm_obstacle_cost(x: tt.TensorVariable, mu: tt.TensorConstant, prec: tt.Te
     assert x.ndim == 2
     assert prec.ndim == 3
 
-    th.config.compute_test_value = 'warn'
-
-    x.tag.test_value = np.random.rand(10, 3)
+    # th.config.compute_test_value = 'warn'
+    # x.tag.test_value = np.random.rand(10, 3)
 
     mux = mu.dimshuffle(0, 'x', 1) - x.dimshuffle('x', 0, 1)
 
@@ -55,10 +54,10 @@ def th_gm_obstacle_cost_wrap(mu: tt.TensorConstant, prec: tt.TensorConstant):
 
         # Get result and sum over all the obstacle gradients.
         res = th_gm_obstacle_cost(x_, mu, prec)  # .shape == (Q*U, K)
-        tt.sum(res, axis=-1)  # .shape == (Q*U,)
+        res = tt.sum(res, axis=-1)  # .shape == (Q*U,)
 
         # Restore original shape, but without workspace dimension axis (the last one)
-        return res.reshape(shape=(x.shape[:-1]), ndim=x.ndim-1)
+        return res.reshape(shape=(x.shape[:-1]), ndim=x.ndim-1)  # .shape == (Q, U)
 
     return wrap
 

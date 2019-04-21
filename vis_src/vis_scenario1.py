@@ -8,14 +8,8 @@ import vispy
 import vispy.scene
 import vispy.visuals
 from vis_src.ellipse import Ellipse
+from collections import deque
 
-"""
-TODO
-2. Init a simple robot trajectory.
-3. Visualize the obstacles, trajectory (with full robot body).
-4. Create the update function for the trajectory.
-5. Get K, apply K.dot(K).inv() to the gradient and update.
-"""
 
 """
 Build a gradient for the scenario where:
@@ -31,7 +25,7 @@ q = tt.dmatrix('q')
 u = tt.constant(np.random.normal(loc=0., scale=1., size=(10, D)), name='u')
 
 # The boundary conditions and initial path.
-qstart = np.ones(3) * -30.
+qstart = np.ones(3) * -35.
 qend = -qstart
 Q = 100
 qvec = (qend - qstart) / Q
@@ -40,9 +34,9 @@ qpath = np.hstack((qarange,)*D) * qvec + qstart
 # </Robot>
 
 # <Obstacles>
-K = 7
-mu = np.random.normal(loc=0., scale=15., size=(K, D))
-dd = np.random.normal(loc=0., scale=10., size=(K, D, 7))
+K = 12
+mu = np.random.normal(loc=0., scale=20., size=(K, D))
+dd = np.random.normal(loc=0., scale=8., size=(K, D, 7))
 cov = []
 for x in dd:
     cov.append(np.cov(x))
@@ -50,6 +44,14 @@ cov = np.array(cov)
 prec = np.linalg.inv(cov)
 ttmu = tt.constant(mu)
 ttprec = tt.constant(prec)
+
+cf = obs.th_gm_obstacle_cost_wrap(ttmu, ttprec)
+f_cf = th.function(inputs=[q], outputs=cf(q), mode=th.compile.FAST_COMPILE)
+
+
+def path_clear(qpath_):
+    # Clear if the whole robot is outside 2 stdevs for all robot points.
+    return np.all(np.less(f_cf(qpath_), .135))
 # </Obstacles>
 
 # <Gradient>
@@ -62,7 +64,7 @@ smooth, _ = obj.th_smoothness(q)
 
 # Obstacle objective.
 obstac, _ = obj.th_obstacle(q=q, u=u,
-                            cf=obs.th_gm_obstacle_cost_wrap(ttmu, ttprec),
+                            cf=cf,
                             xf=kn.th_translation_only)
 
 y_obj = obstac + smooth
@@ -92,15 +94,25 @@ view.camera = 'turntable'
 K_ = obj.slow_fdiff_1(len(qpath)-2)
 Ainv = np.linalg.inv(K_.T.dot(K_))
 
+clear = False
+
 
 def update(ev):
-    qpath_p = fp_obj(qpath)
-    qpath[1:-1] -= 0.01*Ainv.dot(qpath_p[1:-1])
-    p1.set_data(qpath)
-    p1.update()
+    global clear
+    if not clear:
+        qpath_p = fp_obj(qpath)
+        vispy.app.process_events()
+        qpath[1:-1] -= 0.01*Ainv.dot(qpath_p[1:-1])
+        vispy.app.process_events()
+        p1.set_data(qpath)
+        p1.update()
+
+        clear = path_clear(qpath)
+        if clear:
+            print("Clear!")
 
 
-timer = vispy.app.Timer(connect=update, interval=0.1)
+timer = vispy.app.Timer(connect=update, interval=0.01)
 timer.start()
 # </Update>
 

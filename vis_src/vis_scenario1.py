@@ -88,6 +88,22 @@ p1 = PlotTrajectory(qpath, width=.1, color='green',
 view.camera = 'turntable'
 # </Visualization>
 
+# <Update>
+K_ = obj.slow_fdiff_1(len(qpath)-2)
+Ainv = np.linalg.inv(K_.T.dot(K_))
+
+
+def update(ev):
+    qpath_p = fp_obj(qpath)
+    qpath[1:-1] -= 0.01*Ainv.dot(qpath_p[1:-1])
+    p1.set_data(qpath)
+    p1.update()
+
+
+timer = vispy.app.Timer(connect=update, interval=0.1)
+timer.start()
+# </Update>
+
 
 if __name__ == '__main__':
     import sys

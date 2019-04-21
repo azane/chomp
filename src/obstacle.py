@@ -52,9 +52,25 @@ def th_gm_obstacle_cost_wrap(mu: tt.TensorConstant, prec: tt.TensorConstant):
         # Flatten all but the last dimension.
         x_ = x.reshape(shape=(-1, x.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
 
-        # Get result and sum over all the obstacle gradients.
+        # Get result and sum over all the obstacle gradients, then normalize for the number of obstacles.
         res = th_gm_obstacle_cost(x_, mu, prec)  # .shape == (Q*U, K)
-        res = tt.sum(res, axis=-1)  # .shape == (Q*U,)
+        res = tt.sum(res, axis=-1) / res.shape[-1]  # .shape == (Q*U,)
+
+        # Restore original shape, but without workspace dimension axis (the last one)
+        return res.reshape(shape=(x.shape[:-1]), ndim=x.ndim-1)  # .shape == (Q, U)
+
+    return wrap
+
+
+def th_gm_closest_obstacle_cost_wrap(mu: tt.TensorConstant, prec: tt.TensorConstant):
+
+    def wrap(x: tt.TensorVariable):
+        # Flatten all but the last dimension.
+        x_ = x.reshape(shape=(-1, x.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
+
+        # Get result and select closest obstacle (one with the "worst" objective value.
+        res = th_gm_obstacle_cost(x_, mu, prec)  # .shape == (Q*U, K)
+        res = tt.max(res, axis=-1)  # .shape == (Q*U,)
 
         # Restore original shape, but without workspace dimension axis (the last one)
         return res.reshape(shape=(x.shape[:-1]), ndim=x.ndim-1)  # .shape == (Q, U)

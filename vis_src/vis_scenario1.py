@@ -25,7 +25,7 @@ q = tt.dmatrix('q')
 u = tt.constant(np.random.normal(loc=0., scale=1., size=(10, D)), name='u')
 
 # The boundary conditions and initial path.
-qstart = np.ones(3) * -40.
+qstart = np.ones(3) * -45.
 qend = -qstart
 Q = 120
 qvec = (qend - qstart) / Q
@@ -34,9 +34,9 @@ qpath = np.hstack((qarange,)*D) * qvec + qstart
 # </Robot>
 
 # <Obstacles>
-K = 6
+K = 9
 mu = np.random.normal(loc=0., scale=25., size=(K, D))
-dd = np.random.normal(loc=0., scale=13., size=(K, D, 7))
+dd = np.random.normal(loc=0., scale=11., size=(K, D, 7))
 cov = []
 for x in dd:
     cov.append(np.cov(x))
@@ -45,19 +45,20 @@ prec = np.linalg.inv(cov)
 ttmu = tt.constant(mu)
 ttprec = tt.constant(prec)
 
-cf = obs.th_gm_obstacle_cost_wrap(ttmu, ttprec)
+cf = obs.th_gm_closest_obstacle_cost_wrap(ttmu, ttprec)
 f_cf = th.function(inputs=[q], outputs=cf(q), mode=th.compile.FAST_COMPILE)
 
 
 def path_clear(qpath_):
-    # Clear if the whole robot is outside 2.02 stdevs for all robot points.
-    return np.all(np.less(f_cf(qpath_), .130))
+    # Clear if the whole robot is outside ~2.1 stdevs for all robot points.
+    # 2 stdevs is considered the "boundary" here.
+    return np.all(np.less(f_cf(qpath_), .110))
 # </Obstacles>
 
 # <Gradient>
 # For debugging purposes.
-th.config.compute_test_value = 'warn'
-q.tag.test_value = qpath
+# th.config.compute_test_value = 'warn'
+# q.tag.test_value = qpath
 
 # Smoothness objective.
 smooth, _ = obj.th_smoothness(q)
@@ -104,11 +105,19 @@ Ainv = np.linalg.inv(K_.T.dot(K_))
 
 clear = False
 qi = 0
+maxiter = 75
+mi = 0
 
 
 def update(ev):
     global clear
     global qi
+    global mi
+
+    mi += 1
+    if not clear and mi > maxiter:
+        return
+
     if not clear:
         qpath_p = fp_obj(qpath)
         vispy.app.process_events()
@@ -125,6 +134,9 @@ def update(ev):
         scatter.set_data(np.squeeze(f_xf(qpath[qi%Q][None, ...])), edge_color=scolor, face_color=scolor)
         scatter.update()
         qi += 1
+
+    if not clear and mi == maxiter:
+        print(f"Failed after {mi} iterations!")
 
 
 timer = vispy.app.Timer(connect=update, interval=0.05)

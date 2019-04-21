@@ -92,6 +92,4 @@ def th_6dof_rigid(q: tt.TensorVariable, u: tt.TensorConstant):
     ufin = tr.dimshuffle(0, 'x') + urot
 
     return ufin
-
-
 # </Theano 6DOF Kinematics>

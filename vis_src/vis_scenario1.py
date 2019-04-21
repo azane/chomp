@@ -30,6 +30,9 @@ Q = 120
 qvec = (qend - qstart) / Q
 qarange = np.arange(Q)[:, None]
 qpath = np.hstack((qarange,)*D) * qvec + qstart
+
+# Add the angle axes, just initializing them all to pi.
+qpath = np.hstack((qpath, np.ones((Q, 3))*np.pi))
 # </Robot>
 
 # <Obstacles>
@@ -63,7 +66,7 @@ def path_clear(qpath_):
 smooth, _ = obj.th_smoothness(q)
 
 # Obstacle objective.
-xf = kn.th_translation_only
+xf = kn.th_6dof_rigid
 f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 obstac, _ = obj.th_obstacle(q=q, u=u,
                             cf=cf,
@@ -122,6 +125,14 @@ def update(ev):
         vispy.app.process_events()
         qpath[1:-1] -= 0.01*Ainv.dot(qpath_p[1:-1])
         vispy.app.process_events()
+
+        # If any angle-axes of our 6dof q are close to zero, adjust them away.
+        # This breaks the transformation, etc. etc.
+        wtsm = np.where(np.less(qpath[:, 3:].sum(axis=1), .1))
+        aug = np.array([0., 0., 0., 1., 1., 1.]) * np.pi
+        # Doing a column slice makes a copy, so it doesn't update in place.
+        qpath[wtsm] += aug
+
         p1.set_data(qpath)
         p1.update()
 

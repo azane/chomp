@@ -25,18 +25,18 @@ q = tt.dmatrix('q')
 u = tt.constant(np.random.normal(loc=0., scale=1., size=(10, D)), name='u')
 
 # The boundary conditions and initial path.
-qstart = np.ones(3) * -35.
+qstart = np.ones(3) * -40.
 qend = -qstart
-Q = 100
+Q = 120
 qvec = (qend - qstart) / Q
 qarange = np.arange(Q)[:, None]
 qpath = np.hstack((qarange,)*D) * qvec + qstart
 # </Robot>
 
 # <Obstacles>
-K = 12
-mu = np.random.normal(loc=0., scale=20., size=(K, D))
-dd = np.random.normal(loc=0., scale=8., size=(K, D, 7))
+K = 6
+mu = np.random.normal(loc=0., scale=25., size=(K, D))
+dd = np.random.normal(loc=0., scale=13., size=(K, D, 7))
 cov = []
 for x in dd:
     cov.append(np.cov(x))
@@ -50,8 +50,8 @@ f_cf = th.function(inputs=[q], outputs=cf(q), mode=th.compile.FAST_COMPILE)
 
 
 def path_clear(qpath_):
-    # Clear if the whole robot is outside 2 stdevs for all robot points.
-    return np.all(np.less(f_cf(qpath_), .135))
+    # Clear if the whole robot is outside 2.02 stdevs for all robot points.
+    return np.all(np.less(f_cf(qpath_), .130))
 # </Obstacles>
 
 # <Gradient>
@@ -63,9 +63,11 @@ q.tag.test_value = qpath
 smooth, _ = obj.th_smoothness(q)
 
 # Obstacle objective.
+xf = kn.th_translation_only
+f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 obstac, _ = obj.th_obstacle(q=q, u=u,
                             cf=cf,
-                            xf=kn.th_translation_only)
+                            xf=xf)
 
 y_obj = obstac + smooth
 yp_obj = th.grad(y_obj, wrt=q)
@@ -87,6 +89,12 @@ p1 = PlotTrajectory(qpath, width=.1, color='green',
                     edge_color='w', symbol='o', face_color=(0.2, 0.2, 1, 0.8),
                     parent=view.scene)
 
+# The scatter of the robot's body.
+scatter = vispy.scene.visuals.Markers()
+scolor = (0,1,0,1)
+scatter.set_data(np.squeeze(f_xf(qpath[0][None, ...])), edge_color=scolor, face_color=scolor)
+view.add(scatter)
+
 view.camera = 'turntable'
 # </Visualization>
 
@@ -95,10 +103,12 @@ K_ = obj.slow_fdiff_1(len(qpath)-2)
 Ainv = np.linalg.inv(K_.T.dot(K_))
 
 clear = False
+qi = 0
 
 
 def update(ev):
     global clear
+    global qi
     if not clear:
         qpath_p = fp_obj(qpath)
         vispy.app.process_events()
@@ -110,9 +120,14 @@ def update(ev):
         clear = path_clear(qpath)
         if clear:
             print("Clear!")
+    else:
+        # Once complete, move the robot along the path acc. to the kinematics.
+        scatter.set_data(np.squeeze(f_xf(qpath[qi%Q][None, ...])), edge_color=scolor, face_color=scolor)
+        scatter.update()
+        qi += 1
 
 
-timer = vispy.app.Timer(connect=update, interval=0.01)
+timer = vispy.app.Timer(connect=update, interval=0.05)
 timer.start()
 # </Update>
 

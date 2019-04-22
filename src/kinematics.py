@@ -114,3 +114,23 @@ def unzero_6dof(q: np.ndarray):
     return np.hstack((q[:, :3], ax * theta))
 
 # </Theano 6DOF Kinematics>
+
+
+# <Ackerman 3DOF 2d Kinematics>
+def np_ackermann(xyt: np.ndarray, a: float, rinv: float):
+    # Start
+    xys = xyt[:-1]
+    ts = xyt[-1]
+
+    # End
+    t_ = ts - np.pi + a*rinv
+    xye = np.array([np.cos(t_), np.sin(t_)])
+    xye /= np.linalg.norm(xye)
+    xye /= rinv
+    # TODO need to add the center of the circle.
+    # xye += c
+
+    # TODO need to compute te, it's ortho to the xye - c.
+    return xye, 0.
+
+# </Ackerman 3DOF 2d Kinematics>

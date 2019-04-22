@@ -31,9 +31,14 @@ qvec = (qend - qstart) / Q
 qarange = np.arange(Q)[:, None]
 qpath = np.hstack((qarange,)*D) * qvec + qstart
 
-# Add the angle axes, just initializing them all to pi.
-qpath = np.hstack((qpath, np.ones((Q, 3))*np.pi))
+# Add the angle axes, just initializing them all to 2pi.
+qpath = np.hstack((qpath, np.ones((Q, 3))*2.*np.pi))
 # </Robot>
+
+# <Kinematics>
+xf = kn.th_6dof_rigid
+f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
+# </Kinematics>
 
 # <Obstacles>
 K = 9
@@ -48,7 +53,7 @@ ttmu = tt.constant(mu)
 ttprec = tt.constant(prec)
 
 cf = obs.th_gm_closest_obstacle_cost_wrap(ttmu, ttprec)
-f_cf = th.function(inputs=[q], outputs=cf(q), mode=th.compile.FAST_COMPILE)
+f_cf = th.function(inputs=[q], outputs=cf(xf(q, u)), mode=th.compile.FAST_COMPILE)
 
 
 def path_clear(qpath_):
@@ -56,6 +61,7 @@ def path_clear(qpath_):
     # 2 stdevs is considered the "boundary" here.
     return np.all(np.less(f_cf(qpath_), .110))
 # </Obstacles>
+
 
 # <Gradient>
 # For debugging purposes.
@@ -66,8 +72,6 @@ def path_clear(qpath_):
 smooth, _ = obj.th_smoothness(q)
 
 # Obstacle objective.
-xf = kn.th_6dof_rigid
-f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 obstac, _ = obj.th_obstacle(q=q, u=u,
                             cf=cf,
                             xf=xf)
@@ -88,7 +92,7 @@ for m, c in zip(mu, cov):
     Ellipse(mu=m, cov=c, std=2., parent=view.scene, edge_color=(0,0,0,1))
 
 PlotTrajectory = vispy.scene.visuals.create_visual_node(vispy.visuals.LinePlotVisual)
-p1 = PlotTrajectory(qpath, width=.1, color='green',
+p1 = PlotTrajectory(qpath[:, :3], width=.1, color='green',
                     edge_color='w', symbol='o', face_color=(0.2, 0.2, 1, 0.8),
                     parent=view.scene)
 
@@ -115,6 +119,7 @@ def update(ev):
     global clear
     global qi
     global mi
+    global qpath
 
     mi += 1
     if not clear and mi > maxiter:
@@ -126,14 +131,15 @@ def update(ev):
         qpath[1:-1] -= 0.01*Ainv.dot(qpath_p[1:-1])
         vispy.app.process_events()
 
-        # If any angle-axes of our 6dof q are close to zero, adjust them away.
-        # This breaks the transformation, etc. etc.
-        wtsm = np.where(np.less(qpath[:, 3:].sum(axis=1), .1))
-        aug = np.array([0., 0., 0., 1., 1., 1.]) * np.pi
-        # Doing a column slice makes a copy, so it doesn't update in place.
-        qpath[wtsm] += aug
+        # If any angle-axes of our 6dof angle-axes are close to zero,
+        #  adjust them all away.
+        # This breaks the transformation etc. etc.
+        # We trigger this with enough "magnitude" to pull out a reasonable
+        #  axis from the angle axis.
+        if np.any(np.less(qpath[:, 3:].sum(axis=1), .2)):
+            qpath = kn.unzero_6dof(qpath)
 
-        p1.set_data(qpath)
+        p1.set_data(qpath[:, :3])
         p1.update()
 
         clear = path_clear(qpath)

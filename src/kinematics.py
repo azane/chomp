@@ -21,31 +21,31 @@ def th_translation_only(q: tt.TensorVariable, u: tt.TensorConstant):
 
 # For broadcastability, I'm using these sparse matrices that we can multiply by things.
 # I believe theano will optimize out the multiplications by zero.
-s_ = tt.TensorConstant('s_', np.array([
+s_ = tt.constant(np.array([
     [0, -1, 1],
     [1, 0, -1],
     [-1, 1, 0],
 ]))
 
-c_ = tt.TensorConstant('c_', np.array([
+c_ = tt.constant(np.array([
     [1, 0, 0],
     [0, 1, 0],
     [0, 0, 1],
 ]))
 
-x_ = tt.TensorConstant('x_', np.array([
+x_ = tt.constant(np.array([
     [0, 0, 0],
     [0, 0, 1],
     [0, 1, 0],
 ]))
 
-y_ = tt.TensorConstant('y_', np.array([
+y_ = tt.constant(np.array([
     [0, 0, 1],
     [0, 0, 0],
     [1, 0, 0],
 ]))
 
-z_ = tt.TensorConstant('z_', np.array([
+z_ = tt.constant(np.array([
     [0, 1, 0],
     [1, 0, 0],
     [0, 0, 0],
@@ -63,8 +63,10 @@ def th_6dof_rigid(q: tt.TensorVariable, u: tt.TensorConstant):
     # NOTE: We assume issues with zeroed controls are taken care of outside. "Fixing" this here
     #  would result in discontinuities in the gradients (at least, using methods I'm aware of would).
     # (Also: There's a discontinuity at zero here anyway...)
-    theta = aa.norm(axis=0)  # .shape == (Q)  # angle
-    ax = aa / theta  # .shape == (Q, 3)  # axis
+    # See unzero_6dof below for a function to do this globally (which is quite helpful b/c of CHOMP's
+    #  globalization of the smoothness)
+    theta = aa.norm(2, axis=1)  # .shape == (Q)  # angle
+    ax = aa / theta.dimshuffle(0, 'x')  # .shape == (Q, 3)  # axis
 
     # .shape == (Q)
     c = tt.cos(theta)
@@ -87,9 +89,28 @@ def th_6dof_rigid(q: tt.TensorVariable, u: tt.TensorConstant):
 
     # Apply the rotations to u and translate.
     # (Q, 1, 3, 3) . (1, U, 3, 1) == (Q, U, 3, 1)
-    urot = tt.squeeze(matmul(R.dumshuffle(0, 'x', 1, 2), u.dimshuffle('x', 0, 1, 'x')))
+    urot = tt.squeeze(matmul(R.dimshuffle(0, 'x', 1, 2), u.dimshuffle('x', 0, 1, 'x')))
     # (Q, 1, 3) + (Q, U, 3) = (Q, U, 3)
-    ufin = tr.dimshuffle(0, 'x') + urot
+    ufin = tr.dimshuffle(0, 'x', 1) + urot
 
     return ufin
+
+
+def unzero_6dof(q: np.ndarray):
+    # TODO actually, we could roll this into the above pretty easily...
+
+    # NOTE: We do this globally b/c CHOMP maintains global smoothness, and I don't want to deal
+    #  with making my gradients polar or whatever. ; )
+
+    # Pull the angles and axes out.
+    aa = q[:, 3:]
+    theta = np.linalg.norm(aa, axis=1)[:, None]
+    ax = aa / theta
+
+    # Add 2pi to the angles. This changes nothing.
+    theta += 2. * np.pi
+
+    # Rescale the axes and return.
+    return np.hstack((q[:, :3], ax * theta))
+
 # </Theano 6DOF Kinematics>

@@ -28,23 +28,24 @@ lx = np.random.multivariate_normal([Lsize, 0., 0.],
                                     [0., .1, 0.],
                                     [0., 0., .1]],
                                    10)
-ly = np.random.multivariate_normal([0., Lsize, 0.],
-                                   [[.1, 0., 0.],
-                                    [0., Lsize**2., 0.],
-                                    [0., 0., .1]],
-                                   10)
-u = tt.constant(np.vstack((lx, ly)))
+# ly = np.random.multivariate_normal([0., Lsize, 0.],
+#                                    [[.1, 0., 0.],
+#                                     [0., Lsize**2., 0.],
+#                                     [0., 0., .1]],
+#                                    10)
+# u = tt.constant(np.vstack((lx, ly)))
+U = len(lx)
+u = tt.constant(lx)
 
 # The boundary conditions and initial path.
-qstart = np.ones(3) * -45.
+qstart = np.ones(3) * -50.
 qend = -qstart
-Q = 120
+Q = 140
 qvec = (qend - qstart) / Q
 qarange = np.arange(Q)[:, None]
 qpath = np.hstack((qarange,)*D) * qvec + qstart
 
-# Add the angle axes, just initializing them all to 2pi.
-qpath = np.hstack((qpath, np.ones((Q, 3))*2.*np.pi))
+qpath = np.hstack((qpath, np.ones((Q, 3))*2*np.pi))
 # </Robot>
 
 # <Kinematics>
@@ -53,9 +54,9 @@ f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 # </Kinematics>
 
 # <Obstacles>
-K = 7
+K = 9
 mu = np.random.normal(loc=0., scale=25., size=(K, D))
-dd = np.random.normal(loc=0., scale=8., size=(K, D, 7))
+dd = np.random.normal(loc=0., scale=11., size=(K, D, 7))
 cov = []
 for x in dd:
     cov.append(np.cov(x))
@@ -82,7 +83,7 @@ def path_clear(qpath_):
 
 # Smoothness objective.
 # Minimally value angular smoothness.
-w = tt.constant(np.array([1., 1., 1., 0.3, 0.3, 0.3]))
+w = th.shared(np.array([0.4, 0.4, 0.4, 0.3, 0.3, 0.3]))
 smooth, _ = obj.th_smoothness(q, w)
 
 # Obstacle objective.
@@ -140,9 +141,10 @@ def update(ev):
         return
 
     if not clear:
+
         qpath_p = fp_obj(qpath)
         vispy.app.process_events()
-        qpath[1:-1] -= 0.01*Ainv.dot(qpath_p[1:-1])
+        qpath[1:-1] -= 0.005*Ainv.dot(qpath_p[1:-1])
         vispy.app.process_events()
 
         # If any angle-axes of our 6dof angle-axes are close to zero,
@@ -159,6 +161,9 @@ def update(ev):
         clear = path_clear(qpath)
         if clear:
             print("Clear!")
+
+        scatter.set_data(np.reshape(f_xf(qpath), newshape=(-1, D)), edge_color=scolor, face_color=scolor)
+        scatter.update()
     else:
         # Once complete, move the robot along the path acc. to the kinematics.
         scatter.set_data(np.squeeze(f_xf(qpath[qi%Q][None, ...])), edge_color=scolor, face_color=scolor)

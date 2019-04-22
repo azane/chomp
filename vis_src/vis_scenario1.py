@@ -38,10 +38,12 @@ u = tt.constant(np.vstack((lx, ly)))
 # u = tt.constant(lx)
 U = len(u.value)
 
+SCALE = 1
+
 # The boundary conditions and initial path.
-qstart = np.ones(3) * -50.
+qstart = np.ones(3) * -50. * SCALE
 qend = -qstart
-Q = 140
+Q = int(80 * SCALE)
 qvec = (qend - qstart) / Q
 qarange = np.arange(Q)[:, None]
 qpath = np.hstack((qarange,)*D) * qvec + qstart
@@ -55,8 +57,8 @@ f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 # </Kinematics>
 
 # <Obstacles>
-K = 10
-mu = np.random.normal(loc=0., scale=25., size=(K, D))
+K = int(10 * SCALE ** 2)
+mu = np.random.normal(loc=0., scale=25.*SCALE, size=(K, D))
 dd = np.random.normal(loc=0., scale=10., size=(K, D, 7))
 cov = []
 for x in dd:

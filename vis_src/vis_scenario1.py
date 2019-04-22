@@ -21,7 +21,19 @@ D = 3
 
 # <Robot>
 q = tt.dmatrix('q')
-u = tt.constant(np.random.normal(loc=0., scale=1., size=(10, D)), name='u')
+# Make a weird L shaped robot.
+Lsize = 5.
+lx = np.random.multivariate_normal([Lsize, 0., 0.],
+                                   [[Lsize**2., 0., 0.],
+                                    [0., .1, 0.],
+                                    [0., 0., .1]],
+                                   10)
+ly = np.random.multivariate_normal([0., Lsize, 0.],
+                                   [[.1, 0., 0.],
+                                    [0., Lsize**2., 0.],
+                                    [0., 0., .1]],
+                                   10)
+u = tt.constant(np.vstack((lx, ly)))
 
 # The boundary conditions and initial path.
 qstart = np.ones(3) * -45.
@@ -41,9 +53,9 @@ f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 # </Kinematics>
 
 # <Obstacles>
-K = 9
+K = 7
 mu = np.random.normal(loc=0., scale=25., size=(K, D))
-dd = np.random.normal(loc=0., scale=11., size=(K, D, 7))
+dd = np.random.normal(loc=0., scale=8., size=(K, D, 7))
 cov = []
 for x in dd:
     cov.append(np.cov(x))
@@ -69,7 +81,9 @@ def path_clear(qpath_):
 # q.tag.test_value = qpath
 
 # Smoothness objective.
-smooth, _ = obj.th_smoothness(q)
+# Minimally value angular smoothness.
+w = tt.constant(np.array([1., 1., 1., 0.3, 0.3, 0.3]))
+smooth, _ = obj.th_smoothness(q, w)
 
 # Obstacle objective.
 obstac, _ = obj.th_obstacle(q=q, u=u,

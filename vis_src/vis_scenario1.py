@@ -58,7 +58,7 @@ f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 
 # <Obstacles>
 K = int(10 * SCALE ** 2)
-mu = np.random.normal(loc=0., scale=25.*SCALE, size=(K, D))
+mu = np.random.normal(loc=0., scale=27.*SCALE, size=(K, D))
 dd = np.random.normal(loc=0., scale=10., size=(K, D, 7))
 cov = []
 for x in dd:

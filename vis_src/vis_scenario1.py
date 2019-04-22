@@ -8,6 +8,7 @@ import vispy
 import vispy.scene
 import vispy.visuals
 from vis_src.ellipse import Ellipse
+from scipy.optimize import minimize
 
 
 """
@@ -126,6 +127,8 @@ Ainv = np.linalg.inv(K_.T.dot(K_))
 
 clear = False
 qi = 0
+
+# <Manual>
 maxiter = 75
 mi = 0
 
@@ -173,8 +176,50 @@ def update(ev):
     if not clear and mi == maxiter:
         print(f"Failed after {mi} iterations!")
 
+# </Manual>
 
-timer = vispy.app.Timer(connect=update, interval=0.05)
+
+# <Scipy>
+
+def trackonly():
+    global qi
+    if clear:
+        scatter.set_data(np.squeeze(f_xf(qpath[qi % Q][None, ...])), edge_color=scolor, face_color=scolor)
+        scatter.update()
+        qi += 1
+clear = True
+#
+#
+# def jac_wrap(q_):
+#     q_ = q_.reshape(Q, 6)
+#     qg = Ainv.dot(fp_obj(q_)[1:-1])
+#     qg = np.vstack((
+#         np.zeros(6),
+#         qg,
+#         np.zeros(6)
+#     ))
+#     assert qg.shape == q_.shape
+#     return qg.ravel()
+#
+#
+# print("Minimizing...")
+# res = minimize(fun=lambda q_: f_obj(q_.reshape(Q, 6)),
+#                jac=jac_wrap,
+#                x0=qpath.ravel(),
+#                method='L-BFGS-B',
+#                callback=lambda q_: print("Clear?", path_clear(q_.reshape(Q, 6))))
+# qpath = res.x.reshape(Q, 6)
+#
+# clear = path_clear(qpath)
+# if clear:
+#     print("Clear!")
+# else:
+#     print("Failed!")
+
+# </Scipy>
+
+
+timer = vispy.app.Timer(connect=trackonly, interval=0.05)
 timer.start()
 # </Update>
 

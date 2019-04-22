@@ -29,14 +29,14 @@ lx = np.random.multivariate_normal([Lsize, 0., 0.],
                                     [0., .1, 0.],
                                     [0., 0., .1]],
                                    10)
-# ly = np.random.multivariate_normal([0., Lsize, 0.],
-#                                    [[.1, 0., 0.],
-#                                     [0., Lsize**2., 0.],
-#                                     [0., 0., .1]],
-#                                    10)
-# u = tt.constant(np.vstack((lx, ly)))
-U = len(lx)
-u = tt.constant(lx)
+ly = np.random.multivariate_normal([0., Lsize, 0.],
+                                   [[.1, 0., 0.],
+                                    [0., Lsize**2., 0.],
+                                    [0., 0., .1]],
+                                   10)
+u = tt.constant(np.vstack((lx, ly)))
+# u = tt.constant(lx)
+U = len(u.value)
 
 # The boundary conditions and initial path.
 qstart = np.ones(3) * -50.
@@ -55,9 +55,9 @@ f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 # </Kinematics>
 
 # <Obstacles>
-K = 9
+K = 10
 mu = np.random.normal(loc=0., scale=25., size=(K, D))
-dd = np.random.normal(loc=0., scale=11., size=(K, D, 7))
+dd = np.random.normal(loc=0., scale=10., size=(K, D, 7))
 cov = []
 for x in dd:
     cov.append(np.cov(x))
@@ -84,7 +84,7 @@ def path_clear(qpath_):
 
 # Smoothness objective.
 # Minimally value angular smoothness.
-w = th.shared(np.array([0.4, 0.4, 0.4, 0.3, 0.3, 0.3]))
+w = th.shared(np.array([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]))
 smooth, _ = obj.th_smoothness(q, w)
 
 # Obstacle objective.
@@ -131,13 +131,16 @@ qi = 0
 # <Manual>
 maxiter = 75
 mi = 0
-
+last_obj = np.inf
+step = np.array([0.01, 0.01, 0.01, 0.0005, 0.0005, 0.0005])
 
 def update(ev):
     global clear
     global qi
     global mi
     global qpath
+    global step
+    global last_obj
 
     mi += 1
     if not clear and mi > maxiter:
@@ -147,7 +150,7 @@ def update(ev):
 
         qpath_p = fp_obj(qpath)
         vispy.app.process_events()
-        qpath[1:-1] -= 0.005*Ainv.dot(qpath_p[1:-1])
+        qpath[1:-1] -= step[None, :]*Ainv.dot(qpath_p[1:-1])
         vispy.app.process_events()
 
         # If any angle-axes of our 6dof angle-axes are close to zero,
@@ -157,6 +160,15 @@ def update(ev):
         #  axis from the angle axis.
         if np.any(np.less(qpath[:, 3:].sum(axis=1), .2)):
             qpath = kn.unzero_6dof(qpath)
+
+        this_obj = f_obj(qpath)
+        print("Objective: ", this_obj)
+        if (this_obj > last_obj):
+            step *= .7
+        else:
+            step *= 1./.98
+        print("Step: ", step)
+        last_obj = this_obj
 
         p1.set_data(qpath[:, :3])
         p1.update()
@@ -179,47 +191,61 @@ def update(ev):
 # </Manual>
 
 
-# <Scipy>
-
-def trackonly():
-    global qi
-    if clear:
-        scatter.set_data(np.squeeze(f_xf(qpath[qi % Q][None, ...])), edge_color=scolor, face_color=scolor)
-        scatter.update()
-        qi += 1
-clear = True
+# # <Scipy>
+#
+# def trackonly(ev):
+#     global qi
+#     if clear:
+#         scatter.set_data(np.squeeze(f_xf(qpath[qi % Q][None, ...])), edge_color=scolor, face_color=scolor)
+#         scatter.update()
+#         qi += 1
 #
 #
 # def jac_wrap(q_):
-#     q_ = q_.reshape(Q, 6)
-#     qg = Ainv.dot(fp_obj(q_)[1:-1])
-#     qg = np.vstack((
-#         np.zeros(6),
-#         qg,
-#         np.zeros(6)
-#     ))
-#     assert qg.shape == q_.shape
+#     q_ = get_qwends(q_)
+#     # qg = Ainv.dot(fp_obj(q_)[1:-1])
+#     qg = fp_obj(q_)[1:-1]
 #     return qg.ravel()
 #
 #
-# print("Minimizing...")
-# res = minimize(fun=lambda q_: f_obj(q_.reshape(Q, 6)),
-#                jac=jac_wrap,
-#                x0=qpath.ravel(),
-#                method='L-BFGS-B',
-#                callback=lambda q_: print("Clear?", path_clear(q_.reshape(Q, 6))))
-# qpath = res.x.reshape(Q, 6)
+# def fun_wrap(q_):
+#     v = f_obj(get_qwends(q_))
+#     return v
 #
+#
+# def get_qwends(q_):
+#     ret = np.vstack((
+#         qpath[0],
+#         q_.reshape(Q - 2, 6),
+#         qpath[-1]
+#     ))
+#     return ret
+#
+#
+# res = minimize(fun=fun_wrap,
+#                jac=jac_wrap,
+#                x0=qpath[1:-1].ravel(),
+#                method='BFGS',
+#                callback=lambda q_: print("Clear?", path_clear(get_qwends(q_))),
+#                options=dict(disp=True))
+# qpath = get_qwends(res.x.reshape(Q, 6))
+#
+# p1.set_data(qpath[:, :3])
+# p1.update()
+# scatter.set_data(np.reshape(f_xf(qpath), newshape=(-1, D)), edge_color=scolor, face_color=scolor)
+# scatter.update()
+#
+# # noinspection PyRedeclaration
 # clear = path_clear(qpath)
 # if clear:
 #     print("Clear!")
 # else:
 #     print("Failed!")
+#
+# # </Scipy>
 
-# </Scipy>
 
-
-timer = vispy.app.Timer(connect=trackonly, interval=0.05)
+timer = vispy.app.Timer(connect=update, interval=0.05)
 timer.start()
 # </Update>
 

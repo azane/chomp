@@ -36,3 +36,28 @@ def test_gm_distance_field():
     # print("th", np.mean(t2), np.std(t2))
 
     assert np.allclose(npd, thd)
+
+
+def test_el_backproject():
+    K = 1
+    D = 3
+    mu = np.random.normal(loc=0., scale=3., size=(K, D))
+    dd = np.random.normal(loc=0., scale=5., size=(K, D, D*2))
+    cov = []
+    for d in dd:
+        cov.append(np.cov(d))
+    cov = np.array(cov)
+
+    # Points in sphere space.
+    x_s = np.random.normal(loc=0., scale=10., size=(100, D))
+
+    # Project points out into elliptical space.
+    A = np.linalg.cholesky(cov)
+    x_e = np.matmul(A[None, ...], x_s[:, None, :, None])
+    x_e = x_e.squeeze() + mu
+
+    # Project them back into spherical space using the test function.
+    Ainv = np.linalg.inv(A)
+    x_s2 = obs.np_el_backproject_all(x_e, mu, Ainv)
+
+    assert np.allclose(x_s, x_s2.squeeze())

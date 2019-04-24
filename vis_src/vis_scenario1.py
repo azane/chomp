@@ -41,9 +41,9 @@ U = len(u.value)
 SCALE = 1
 
 # The boundary conditions and initial path.
-qstart = np.ones(3) * -50. * SCALE
+qstart = np.ones(3) * -58. * SCALE
 qend = -qstart
-Q = int(80 * SCALE)
+Q = int(40 * SCALE)
 qvec = (qend - qstart) / Q
 qarange = np.arange(Q)[:, None]
 qpath = np.hstack((qarange,)*D) * qvec + qstart
@@ -59,7 +59,7 @@ f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 # <Obstacles>
 K = int(10 * SCALE ** 2)
 mu = np.random.normal(loc=0., scale=27.*SCALE, size=(K, D))
-dd = np.random.normal(loc=0., scale=10., size=(K, D, 7))
+dd = np.random.normal(loc=0., scale=12., size=(K, D, 7))
 cov = []
 for x in dd:
     cov.append(np.cov(x))
@@ -76,6 +76,19 @@ def path_clear(qpath_):
     # Clear if the whole robot is outside ~2.1 stdevs for all robot points.
     # 2 stdevs is considered the "boundary" here.
     return np.all(np.less(f_cf(qpath_), .110))
+
+
+covAinv = np.linalg.cholesky(cov)
+def path_clear_meh(qpath_):
+    raise NotImplementedError("This is broken.")
+    # Clear if the path of closest approach between all adjacent qpath members
+    #  is outside of the obstacle closest to that path.
+    xx = f_xf(qpath_)
+    x1 = xx[1:]
+    x2 = xx[:-1]
+    d = obs.np_el_nearestd(x1=x1.reshape(-1, D), x2=x2.reshape(-1, D), mu=mu, Ainv=covAinv, prec=prec)
+    # Clear if no point is within 2.1 stdevs of an ellipse.
+    return not np.any(d < 2.1)
 # </Obstacles>
 
 
@@ -125,7 +138,7 @@ view.camera = 'turntable'
 
 # <Update>
 K_ = obj.slow_fdiff_1(len(qpath)-2)
-Ainv = np.linalg.inv(K_.T.dot(K_))
+Ainv = np.linalg.inv(K_.T.dot(K_) + np.diag(np.ones(K_.shape[1])*0.001))
 
 clear = False
 qi = 0
@@ -135,6 +148,7 @@ maxiter = 75
 mi = 0
 last_obj = np.inf
 step = np.array([0.01, 0.01, 0.01, 0.0005, 0.0005, 0.0005])
+
 
 def update(ev):
     global clear
@@ -166,9 +180,11 @@ def update(ev):
         this_obj = f_obj(qpath)
         print("Objective: ", this_obj)
         if (this_obj > last_obj):
-            step *= .7
+            # step *= .7
+            step *= .4
         else:
-            step *= 1./.98
+            # step *= 1./.98
+            step *= 1. / .8
         print("Step: ", step)
         last_obj = this_obj
 
@@ -191,60 +207,6 @@ def update(ev):
         print(f"Failed after {mi} iterations!")
 
 # </Manual>
-
-
-# # <Scipy>
-#
-# def trackonly(ev):
-#     global qi
-#     if clear:
-#         scatter.set_data(np.squeeze(f_xf(qpath[qi % Q][None, ...])), edge_color=scolor, face_color=scolor)
-#         scatter.update()
-#         qi += 1
-#
-#
-# def jac_wrap(q_):
-#     q_ = get_qwends(q_)
-#     # qg = Ainv.dot(fp_obj(q_)[1:-1])
-#     qg = fp_obj(q_)[1:-1]
-#     return qg.ravel()
-#
-#
-# def fun_wrap(q_):
-#     v = f_obj(get_qwends(q_))
-#     return v
-#
-#
-# def get_qwends(q_):
-#     ret = np.vstack((
-#         qpath[0],
-#         q_.reshape(Q - 2, 6),
-#         qpath[-1]
-#     ))
-#     return ret
-#
-#
-# res = minimize(fun=fun_wrap,
-#                jac=jac_wrap,
-#                x0=qpath[1:-1].ravel(),
-#                method='BFGS',
-#                callback=lambda q_: print("Clear?", path_clear(get_qwends(q_))),
-#                options=dict(disp=True))
-# qpath = get_qwends(res.x.reshape(Q, 6))
-#
-# p1.set_data(qpath[:, :3])
-# p1.update()
-# scatter.set_data(np.reshape(f_xf(qpath), newshape=(-1, D)), edge_color=scolor, face_color=scolor)
-# scatter.update()
-#
-# # noinspection PyRedeclaration
-# clear = path_clear(qpath)
-# if clear:
-#     print("Clear!")
-# else:
-#     print("Failed!")
-#
-# # </Scipy>
 
 
 timer = vispy.app.Timer(connect=update, interval=0.05)

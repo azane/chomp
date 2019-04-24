@@ -33,15 +33,20 @@ xg = xg.reshape(-1, D)
 
 # And reproject with slightly different mus (so we can differentiate the balls.)
 # TODO
+xb = obs.np_el_backproject_all(x=xg, mu=mu, Ainv=np.linalg.inv(A)).reshape(-1, D)
+xb += np.ones((1, 3))*20.
 
 # create scatter object and fill in the data
 scatter = visuals.Markers()
 scatter.set_data(x, edge_color=colors, face_color=colors, size=5)
 scatter2 = visuals.Markers()
-scatter2.set_data(xg, size=5)
+scatter2.set_data(xg, size=5, face_color='blue')
+scatter3 = visuals.Markers()
+scatter3.set_data(xb, size=5, face_color='red')
 
 view.add(scatter)
 view.add(scatter2)
+view.add(scatter3)
 
 view.camera = 'turntable'  # or try 'arcball'
 

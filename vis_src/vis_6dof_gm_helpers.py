@@ -45,7 +45,7 @@ def get_6dof_straight_path():
 
 def get_gm_obstacle_field():
     # TODO HACK. This is weird...yay quick hax.
-    if len(sys.argv[1]):
+    if len(sys.argv) == 2:
         mu = np.load(os.path.join(dpath, f"mu{sys.argv[1]}.npy"))
         cov = np.load(os.path.join(dpath, f"cov{sys.argv[1]}.npy"))
         return mu, cov

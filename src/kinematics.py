@@ -118,19 +118,23 @@ def unzero_6dof(q: np.ndarray):
 
 # <Ackerman 3DOF 2d Kinematics>
 def np_ackermann(xyt: np.ndarray, a: float, rinv: float):
-    # Start
-    xys = xyt[:-1]
-    ts = xyt[-1]
+    # The angle of the turn given the arc length and the radius.
+    theta_a = a*rinv
+    # The length of the chord between start and finish.
+    len_c = (2.*np.sin(theta_a/2.))/rinv
+    # The angle between the chord vector and the starting vector.
+    theta_c = np.pi - theta_a
 
-    # End
-    t_ = ts - np.pi + a*rinv
-    xye = np.array([np.cos(t_), np.sin(t_)])
-    xye /= np.linalg.norm(xye)
-    xye /= rinv
-    # TODO need to add the center of the circle.
-    # xye += c
+    # Find the xy of the new point.
+    dvec = np.copy(xyt)
+    dvec[-1] += theta_c
 
-    # TODO need to compute te, it's ortho to the xye - c.
-    return xye, 0.
+    theta_t = xyt[-1] + theta_c
+
+    xy_f = xyt[:-1] + np.array(np.cos(theta_t), np.sin(theta_t))
+    xy_f *= len_c
+
+
+
 
 # </Ackerman 3DOF 2d Kinematics>

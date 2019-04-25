@@ -39,9 +39,9 @@ def get_6dof_straight_path():
 
 
 def get_gm_obstacle_field():
-    K = int(10)
+    K = int(15)
     mu = np.random.normal(loc=0., scale=27., size=(K, D))
-    dd = np.random.normal(loc=0., scale=12., size=(K, D, 7))
+    dd = np.random.normal(loc=0., scale=10., size=(K, D, 7))
     cov = []
     for x in dd:
         cov.append(np.cov(x))

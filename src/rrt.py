@@ -6,7 +6,7 @@ import theano.tensor as tt
 from typing import *
 
 
-# A simple, super unoptimized RRT, specifically for the an eliptical obstacle field.
+# A simple, super unoptimized RRT, specifically for an elliptical obstacle field.
 class RRT_GM6DOF(object):
     D = 6
 
@@ -18,8 +18,8 @@ class RRT_GM6DOF(object):
 
         assert cov.ndim == 3
         assert mu.ndim == 2
-        assert cov.shape[1] == self.mu.shape[1] == self.D/2
-        assert cov.shape[0] == self.mu.shape[0]
+        assert cov.shape[1] == mu.shape[1] == self.D/2
+        assert cov.shape[0] == mu.shape[0]
         assert start.shape == goal.shape == (self.D,)
         assert len(bounds) == self.D
 
@@ -33,15 +33,18 @@ class RRT_GM6DOF(object):
         self.start = start
         self.goal = goal
         self.numnodes = 0
-        self._add(self.start)
+        ci = self._add(self.start)
+        self.parents = {ci: None}
 
         # Pose > world for collision checking.
         xf = kn.th_6dof_rigid
         q = tt.dmatrix('q')
         self.f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 
-        self.parents = {0: None}
         self.samplegoal = samplegoal
+
+        self.done = False
+        self._donepath = None
 
     @property
     def nodes(self):
@@ -61,38 +64,50 @@ class RRT_GM6DOF(object):
             x = []
             for b in self.bounds:
                 x.append(np.random.uniform(b[0], b[1]))
-            return np.array(x)
+            x = np.array(x)
+            return x
 
     def plan(self):
+
+        if np.allclose(self.nodes[-1], self.goal):
+            self.done = True
+            if self._donepath is None:
+                self._donepath = self.path()
+            return self._donepath
+
+        if self.numnodes == len(self._nodes):
+            raise MemoryError("Not enough nodes allocated!")
+
         # Sample a point in the cspace.
         x = self.sample()
         # Compute the distances to known nodes.
-        dd = np.linalg.norm(self.nodes - x)
+        # TODO this will incorrectly say that an angle axis scaled by 2pi is far from one scaled by 4pi.
+        dd = np.linalg.norm(self.nodes - x, axis=1)
         # Get the index of the closest node. This is the proposed parent.
         pi = np.argmin(dd)
         # Retrieve the parent point.
         xp = self.nodes[pi]
 
         # Go from 6dof to body point-cloud in 3d.
-        uu = self.f_xf(np.vstack(x[:, None], xp[:, None]))
+        uu = self.f_xf(np.vstack((x[None, :], xp[None, :])))
         # Check for obstacles along the path. If free, add to parent map.
-        d = obs.np_el_nearestd(uu[0, :, None], uu[1, :, None], self.mu, self.Ainv)
+        d = obs.np_el_nearestd(uu[0], uu[1], self.mu, self.Ainv)
         if not np.any(d < self.std):
             ci = self._add(x)
             self.parents[ci] = pi
-            yield self.path(ci)
-            if np.allclose(x, self.goal):
-                return True
+            return self.path(ci)
+        return None
 
     def path(self, ci=None):
+        # Use the last seen node by default.
         if ci is None:
             ci = self.numnodes - 1
 
         xx = [ci]
-        while True:
+        pi = self.parents[ci]
+        while pi is not None:
+            xx.append(pi)
             pi = self.parents[ci]
-            if pi is None:
-                break
-            xx.append(self.nodes[pi])
+            ci = pi
 
         return self.nodes[xx]

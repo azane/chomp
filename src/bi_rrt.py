@@ -6,7 +6,7 @@ import theano.tensor as tt
 from typing import *
 
 
-# A simple, unoptimized RRT, specifically for the an eliptical obstacle field.
+# A simple, super unoptimized RRT, specifically for the an eliptical obstacle field.
 class RRT_GM6DOF(object):
     D = 6
 
@@ -73,10 +73,11 @@ class RRT_GM6DOF(object):
         # Retrieve the parent point.
         xp = self.nodes[pi]
 
-        # Check for obstacles. If free, add to parent map.
-        d = obs.np_el_nearestd(x[:, None], xp[:, None], self.mu, self.Ainv)
+        # Go from 6dof to body point-cloud in 3d.
+        uu = self.f_xf(np.vstack(x[:, None], xp[:, None]))
+        # Check for obstacles along the path. If free, add to parent map.
+        d = obs.np_el_nearestd(uu[0, :, None], uu[1, :, None], self.mu, self.Ainv)
         if not np.any(d < self.std):
-            # Add this child to the node list.
             ci = self._add(x)
             self.parents[ci] = pi
             yield self.path(ci)

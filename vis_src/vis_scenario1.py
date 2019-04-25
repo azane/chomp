@@ -8,62 +8,24 @@ import vispy
 import vispy.scene
 import vispy.visuals
 from vis_src.ellipse import Ellipse
-from scipy.optimize import minimize
+import vis_src.vis_6dof_gm_helpers as h
 
+D = h.D
+Q = h.Q
+U = h.U
 
-"""
-Build a gradient for the scenario where:
-1. Our obstacles are just a bunch of ellipsoids.
-2. Our robot is a random point cloud.
-3. Our robot moves with translation only.
-"""
-
-D = 3
-
-# <Robot>
 q = tt.dmatrix('q')
-# Make a weird L shaped robot.
-Lsize = 5.
-lx = np.random.multivariate_normal([Lsize, 0., 0.],
-                                   [[Lsize**2., 0., 0.],
-                                    [0., .1, 0.],
-                                    [0., 0., .1]],
-                                   10)
-ly = np.random.multivariate_normal([0., Lsize, 0.],
-                                   [[.1, 0., 0.],
-                                    [0., Lsize**2., 0.],
-                                    [0., 0., .1]],
-                                   10)
-u = tt.constant(np.vstack((lx, ly)))
-# u = tt.constant(lx)
-U = len(u.value)
+u = h.get_L_3d_robot()
+qpath = h.get_6dof_straight_path()
 
 SCALE = 1
-
-# The boundary conditions and initial path.
-qstart = np.ones(3) * -58. * SCALE
-qend = -qstart
-Q = int(40 * SCALE)
-qvec = (qend - qstart) / Q
-qarange = np.arange(Q)[:, None]
-qpath = np.hstack((qarange,)*D) * qvec + qstart
-
-qpath = np.hstack((qpath, np.ones((Q, 3))*2*np.pi))
-# </Robot>
-
 # <Kinematics>
 xf = kn.th_6dof_rigid
 f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 # </Kinematics>
 
 # <Obstacles>
-K = int(10 * SCALE ** 2)
-mu = np.random.normal(loc=0., scale=27.*SCALE, size=(K, D))
-dd = np.random.normal(loc=0., scale=12., size=(K, D, 7))
-cov = []
-for x in dd:
-    cov.append(np.cov(x))
-cov = np.array(cov)
+mu, cov = h.get_gm_obstacle_field()
 prec = np.linalg.inv(cov)
 ttmu = tt.constant(mu)
 ttprec = tt.constant(prec)

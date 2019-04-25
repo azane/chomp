@@ -1,64 +1,97 @@
 import numpy as np
+import src.kinematics as kn
+import src.obstacle as obs
+import theano as th
+import theano.tensor as tt
+from typing import *
 
-# A simple, unoptimized RRT, specifically for the gm obstacle field.
 
-class RRT_GM(object):
-    def __init__(self, mu, cov):
+# A simple, unoptimized RRT, specifically for the an eliptical obstacle field.
+class RRT_GM6DOF(object):
+    D = 6
+
+    def __init__(self, mu, cov, u: tt.TensorConstant,
+                 start: np.ndarray, goal: np.ndarray,
+                 bounds: List[Tuple[float, float]],
+                 samplegoal: float=.1, std:float =2.1):
         super().__init__()
 
         assert cov.ndim == 3
         assert mu.ndim == 2
-        assert cov.shape[1] == self.mu.shape[1]
+        assert cov.shape[1] == self.mu.shape[1] == self.D/2
         assert cov.shape[0] == self.mu.shape[0]
+        assert start.shape == goal.shape == (self.D,)
+        assert len(bounds) == self.D
 
         self.Ainv = np.linalg.inv(np.linalg.cholesky(cov))
         self.mu = mu
-        self.d = self.mu.shape[1]
+        self.std = std
+        self.bounds = bounds
 
-    # TODO move this logic to the obstacle checker and convert to a proper distance field...
-    # TODO will need to put the spherical distance (in stdev units) on an axis, and reproject
-    # TODO  back out to the covariant ellipse.
-    def _backproject(self, x):
-        # Project the points in x back to each gaussian in the field.
-        assert x.shape[1] == self.d
-        assert x.ndim == 2
+        # Allocate the RRT 100k 6dof nodes.
+        self._nodes = np.empty((100000, self.D))
+        self.start = start
+        self.goal = goal
+        self.numnodes = 0
+        self._add(self.start)
 
-        x = x[:, None, :] - self.mu[None, :, :]  # (X, N, D)
-        x = np.matmul(self.Ainv, x[..., None])  # (N, D, D) . (X, N, D, 1)
-        x = np.squeeze(x)  # (X, N, D)
-        return x
+        # Pose > world for collision checking.
+        xf = kn.th_6dof_rigid
+        q = tt.dmatrix('q')
+        self.f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
 
-    def check_collision(self, x1, x2, std=2.1):
+        self.parents = {0: None}
+        self.samplegoal = samplegoal
 
-        # First, backproject the points into each obstacle's spherical space.
-        x1g = self._backproject(x1)  # (X, N, D)
-        x2g = self._backproject(x2)
+    @property
+    def nodes(self):
+        return self._nodes[:self.numnodes]
 
-        # Compute the distance of closest approach between each pair of points in
-        #  x1 and x2.
-        # From http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
+    def _add(self, x: np.ndarray):
+        self._nodes[self.numnodes] = x
+        i = self.numnodes
+        self.numnodes += 1
+        return i
 
-        # Our x0 is simply the origin here (because we projected back to a zero mean std=1 gaussian).
+    def sample(self):
+        if np.random.rand() < self.samplegoal:
+            return self.goal
+        else:
+            # TODO Could cache a bunch of these sample for a pretty good speedup.
+            x = []
+            for b in self.bounds:
+                x.append(np.random.uniform(b[0], b[1]))
+            return np.array(x)
 
-        x1gf = x1g.reshape(-1, self.d)
-        x2gf = x2g.reshape(-1, self.d)
+    def plan(self):
+        # Sample a point in the cspace.
+        x = self.sample()
+        # Compute the distances to known nodes.
+        dd = np.linalg.norm(self.nodes - x)
+        # Get the index of the closest node. This is the proposed parent.
+        pi = np.argmin(dd)
+        # Retrieve the parent point.
+        xp = self.nodes[pi]
 
-        num = np.cross(-x1gf, -x2gf)
-        num = np.linalg.norm(num, axis=1)
+        # Check for obstacles. If free, add to parent map.
+        d = obs.np_el_nearestd(x[:, None], xp[:, None], self.mu, self.Ainv)
+        if not np.any(d < self.std):
+            # Add this child to the node list.
+            ci = self._add(x)
+            self.parents[ci] = pi
+            yield self.path(ci)
+            if np.allclose(x, self.goal):
+                return True
 
-        den = np.linalg.norm(x2gf - x1gf, axis=1)
+    def path(self, ci=None):
+        if ci is None:
+            ci = self.numnodes - 1
 
-        # Note: this distance will be the distance in std units.
-        d = num / den
-        d = d.reshape(x1g.shape[:-1])  # (X, N)
+        xx = [ci]
+        while True:
+            pi = self.parents[ci]
+            if pi is None:
+                break
+            xx.append(self.nodes[pi])
 
-        # If within the std collision radius, there's a collision with this obstacle.
-        c = d <= std
-        # If a point pair collides with any obstacle, then we have a problem.
-        c = np.any(c, axis=1)
-
-        return c
-
-
-
-
+        return self.nodes[xx]

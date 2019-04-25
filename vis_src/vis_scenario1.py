@@ -72,23 +72,23 @@ cf = obs.th_gm_closest_obstacle_cost_wrap(ttmu, ttprec)
 f_cf = th.function(inputs=[q], outputs=cf(xf(q, u)), mode=th.compile.FAST_COMPILE)
 
 
-def path_clear(qpath_):
+def path_clear_old(qpath_):
     # Clear if the whole robot is outside ~2.1 stdevs for all robot points.
     # 2 stdevs is considered the "boundary" here.
     return np.all(np.less(f_cf(qpath_), .110))
 
 
-covAinv = np.linalg.cholesky(cov)
-def path_clear_meh(qpath_):
-    raise NotImplementedError("This is broken.")
+covAinv = np.linalg.inv(np.linalg.cholesky(cov))
+def path_clear(qpath_):
     # Clear if the path of closest approach between all adjacent qpath members
     #  is outside of the obstacle closest to that path.
     xx = f_xf(qpath_)
     x1 = xx[1:]
     x2 = xx[:-1]
-    d = obs.np_el_nearestd(x1=x1.reshape(-1, D), x2=x2.reshape(-1, D), mu=mu, Ainv=covAinv, prec=prec)
+    d = obs.np_el_nearestd(x1=x1.reshape(-1, D), x2=x2.reshape(-1, D), mu=mu, Ainv=covAinv)
     # Clear if no point is within 2.1 stdevs of an ellipse.
-    return not np.any(d < 2.1)
+    col = d < 2.1
+    return not np.any(col)
 # </Obstacles>
 
 
@@ -184,7 +184,7 @@ def update(ev):
             step *= .4
         else:
             # step *= 1./.98
-            step *= 1. / .8
+            step *= 1. / .9
         print("Step: ", step)
         last_obj = this_obj
 

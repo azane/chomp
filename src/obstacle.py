@@ -100,10 +100,7 @@ def np_el_backproject_all(x, mu, Ainv):
     return x
 
 
-def np_el_nearestd(x1, x2, mu, Ainv, prec):
-    # I'm probably misunderstanding some space transformations...anyway.
-    raise NotImplementedError("This is broken...")
-
+def np_el_nearestd(x1, x2, mu, Ainv):
     # Compute the distance of closest approach between each pair of points in
     #  x1 and x2. Return only the distance to the closest obstacle along each line.
     # This distance is in standard deviation units.
@@ -121,15 +118,23 @@ def np_el_nearestd(x1, x2, mu, Ainv, prec):
     x1gf = x1g.reshape(-1, D)
     x2gf = x2g.reshape(-1, D)
 
-    num = np.cross(-x1gf, -x2gf)
-    num = np.linalg.norm(num, axis=1)
+    diff = x2gf - x1gf
+    num = -np.matmul(x1gf[..., None, :], diff[..., :, None]).squeeze()
+    # Squared euc norm.
+    den = np.matmul(diff[..., None, :], diff[..., :, None]).squeeze()
 
-    den = np.linalg.norm(x2gf - x1gf, axis=1)
+    t = num / den
 
-    # Note: this distance will be the distance in std units.
-    d = num / den
+    # If t is negative, or greater than diff, this point is out of bounds.
+    tneg = t < 0
+    tbig = t > np.sqrt(den)
+    tout = np.logical_or(tneg, tbig)
+    t[tout] = np.inf
+
+    d = np.linalg.norm(x1gf + diff*t[:, None], axis=1)
     d = d.reshape(x1g.shape[:-1])  # (N, K)
-
     return np.min(d, axis=1)
+
+# TODO make theano versions of the above and use as our obstacle obstacle distance computation for CHOMP.
 
 # <Elliptical Obstacle Distance Field>

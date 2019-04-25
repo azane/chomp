@@ -46,13 +46,23 @@ def get_6dof_straight_path():
 def get_gm_obstacle_field():
     # TODO HACK. This is weird...yay quick hax.
     if len(sys.argv) == 2:
-        mu = np.load(os.path.join(dpath, f"mu{sys.argv[1]}.npy"))
-        cov = np.load(os.path.join(dpath, f"cov{sys.argv[1]}.npy"))
-        return mu, cov
+        if sys.argv[1] == 'u':
+            pass
+        else:
+            mu = np.load(os.path.join(dpath, f"mu{sys.argv[1]}.npy"))
+            cov = np.load(os.path.join(dpath, f"cov{sys.argv[1]}.npy"))
+            return mu, cov
 
-    K = int(15)
-    mu = np.random.normal(loc=0., scale=27., size=(K, D))
-    dd = np.random.normal(loc=0., scale=10., size=(K, D, 7))
+    if len(sys.argv) == 2:
+        K = int(20)
+        scale = 8.
+        mu = np.random.uniform(-50., 50., size=(K, D))
+    else:
+        K = int(15)
+        scale = 10.
+        mu = np.random.normal(loc=0., scale=27., size=(K, D))
+
+    dd = np.random.normal(loc=0., scale=scale, size=(K, D, 7))
     cov = []
     for x in dd:
         cov.append(np.cov(x))

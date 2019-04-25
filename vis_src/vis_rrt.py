@@ -63,7 +63,8 @@ view.camera = 'turntable'
 # </Visualization>
 
 planner = rrt.RRT_GM6DOF(mu=mu, cov=cov, u=u, start=qpath[0], goal=qpath[-1],
-                         bounds=[(-60, 60)]*3 + [(np.pi, 4*np.pi)]*3)
+                         # AA is dynamical per distance. TODO erm does this make sense with aa not just a?
+                         bounds=[(-60, 60)]*3 + [(-.006*np.pi, .006*np.pi)]*3)
 
 
 def update(ev):

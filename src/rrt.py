@@ -81,12 +81,15 @@ class RRT_GM6DOF(object):
         # Sample a point in the cspace.
         x = self.sample()
         # Compute the distances to known nodes.
-        # TODO this will incorrectly say that an angle axis scaled by 2pi is far from one scaled by 4pi.
-        dd = np.linalg.norm(self.nodes - x, axis=1)
+        # Compare only positions, we'll juse use dynamics for the angle-axis.
+        dd = np.linalg.norm(self.nodes[:, :3] - x[None, :3], axis=1)
         # Get the index of the closest node. This is the proposed parent.
         pi = np.argmin(dd)
         # Retrieve the parent point.
         xp = self.nodes[pi]
+        # Increment the step based on the sampled angle-axis dynamics, scale by distance.
+        # TODO does this make sense with AA rep? hmm...
+        xp[3:] += x[3:]*dd[pi]
 
         # Go from 6dof to body point-cloud in 3d.
         uu = self.f_xf(np.vstack((x[None, :], xp[None, :])))

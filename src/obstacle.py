@@ -220,23 +220,26 @@ def np_el_nearestd(x1, x2, mu, Ainv):
 
 def th_el_nearestd_signed_wrap(mu: tt.TensorConstant, Ainv: tt.TensorConstant, dthresh=2.0):
 
-    def wrap(x1: tt.TensorVariable, x2: tt.TensorVariable):
-        x1_ = x1.reshape(shape=(-1, x1.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
-        x2_ = x1.reshape(shape=(-1, x2.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
+    def wrap(qu: tt.TensorVariable):
+        x1 = qu[:-1]
+        x2 = qu[1:]
+        x1_ = x1.reshape(shape=(-1, x1.shape[-1]), ndim=2)  # (Q-1, U, D) => ((Q-1)*U, D)
+        x2_ = x1.reshape(shape=(-1, x2.shape[-1]), ndim=2)  # (Q-1, U, D) => ((Q-1)*U, D)
 
-        d = th_el_nearestd(x1=x1_, x2=x2_, mu=mu, Ainv=Ainv)  # .shape == (Q*U,)
+        d = th_el_nearestd(x1=x1_, x2=x2_, mu=mu, Ainv=Ainv)  # .shape == ((Q-1)*U,)
+
         # Sign the distance field.
         sdf = d - dthresh
 
-        return sdf.reshape(shape=(x1.shape[:-1]))  # .shape == (Q, U)
+        return sdf.reshape(shape=(x1.shape[:-1]))  # .shape == ((Q-1), U)
 
     return wrap
 
 
-def th_el_distance_field_cost(x1: tt.TensorVariable, x2: tt.TensorVariable,
+def th_el_distance_field_cost(qu: tt.TensorVariable,
                               mu: tt.TensorConstant, Ainv: tt.TensorConstant,
                               dthresh=2.0, eps=0.1):
-    return th_distance_field_cost(th_el_nearestd_signed_wrap(mu, Ainv, dthresh)(x1, x2), eps)
+    return th_distance_field_cost(th_el_nearestd_signed_wrap(mu, Ainv, dthresh)(qu), eps)
 
 # <Elliptical Obstacle Distance Field>
 

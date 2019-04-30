@@ -108,3 +108,11 @@ def test_th_np_nearestd():
         th_d = f(x1.reshape(-1, D), x2.reshape(-1, D))
         assert np.allclose(np_d, th_d)
 
+    xx = np.random.uniform(-6., 6., size=(2, U, D))
+    x1 = xx[1:]
+    x2 = xx[:-1]
+    np_d = obs.np_el_nearestd(x1=x1.reshape(-1, D), x2=x2.reshape(-1, D), mu=mu, Ainv=covAinv)
+    th_d = f(x1.reshape(-1, D), x2.reshape(-1, D))
+    assert np.allclose(np_d, th_d)
+
+

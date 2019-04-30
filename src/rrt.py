@@ -13,7 +13,8 @@ class RRT_GM6DOF(object):
     def __init__(self, mu, cov, u: tt.TensorConstant,
                  start: np.ndarray, goal: np.ndarray,
                  bounds: List[Tuple[float, float]],
-                 samplegoal: float=.1, std:float =2.1):
+                 samplegoal: float=.1,
+                 dthresh: float=2.0):
         super().__init__()
 
         assert cov.ndim == 3
@@ -22,10 +23,11 @@ class RRT_GM6DOF(object):
         assert cov.shape[0] == mu.shape[0]
         assert start.shape == goal.shape == (self.D,)
         assert len(bounds) == self.D
+        assert dthresh > 0.
 
         self.Ainv = np.linalg.inv(np.linalg.cholesky(cov))
         self.mu = mu
-        self.std = std
+        self.dthresh = dthresh
         self.bounds = bounds
 
         # Allocate the RRT 100k 6dof nodes.
@@ -37,14 +39,46 @@ class RRT_GM6DOF(object):
         self.parents = {ci: None}
 
         # Pose > world for collision checking.
+        # "Kinematics"
         xf = kn.th_6dof_rigid
         q = tt.dmatrix('q')
-        self.f_xf = th.function(inputs=[q], outputs=xf(q, u), mode=th.compile.FAST_COMPILE)
+        tt_xf = xf(q, u)
+        self.f_xf = th.function(inputs=[q], outputs=tt_xf, mode=th.compile.FAST_COMPILE)
+
+        # Obstacle field checking.
+        tt_mu = tt.constant(self.mu)
+        tt_Ainv = tt.constant(self.Ainv)
+
+        # DEBUB
+        qtv = np.vstack((start[None, ...], (start-2.)[None, ...]))
+        th.config.traceback.limit = 100
+        # th.config.compute_test_value = 'warn'
+        # q.tag.test_value = qtv
+        # /DEBUG
+
+        xf = tt.dtensor3('xf')
+        tt_sdf = obs.th_el_nearestd_signed_wrap(mu=tt_mu, Ainv=tt_Ainv, dthresh=self.dthresh)(xf)
+        # Clear if the sdf value is greater than 0.
+        self.f_sdf = th.function(inputs=[xf], outputs=tt_sdf, mode=th.compile.FAST_COMPILE)
+
+        # DEBUG
+        x1_ = tt.dmatrix('x1_')
+        x2_ = tt.dmatrix('x2_')
+        d_ = obs.th_el_nearestd(x1=x1_, x2=x2_, mu=tt_mu, Ainv=tt_Ainv)
+        self.f_d_ = th.function(inputs=[x1_, x2_], outputs=d_, mode=th.compile.FAST_COMPILE)
+        # /DEBUG
+
+        self.f_clr = lambda q_: np.all(self.f_sdf(self.f_xf(q_)) > 0.)
 
         self.samplegoal = samplegoal
 
         self.done = False
         self._donepath = None
+
+    def f_clr2(self, q_):
+        u = self.f_xf(q_)
+        d = obs.np_el_nearestd(u[1:].reshape(-1, 3), u[:-1].reshape(-1, 3), self.mu, self.Ainv)
+        return np.all(d > 0.)
 
     @property
     def nodes(self):
@@ -92,10 +126,10 @@ class RRT_GM6DOF(object):
         xp[3:] += x[3:]*dd[pi]
 
         # Go from 6dof to body point-cloud in 3d.
-        uu = self.f_xf(np.vstack((x[None, :], xp[None, :])))
+        qq = np.vstack((x[None, :], xp[None, :]))
         # Check for obstacles along the path. If free, add to parent map.
-        d = obs.np_el_nearestd(uu[0], uu[1], self.mu, self.Ainv)
-        if not np.any(d < self.std):
+        clr = self.f_clr2(qq)
+        if clr:
             ci = self._add(x)
             self.parents[ci] = pi
             return self.path(ci)

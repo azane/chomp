@@ -1,5 +1,6 @@
 import src.obstacle as obs
 import theano.tensor as tt
+import theano as th
 import numpy as np
 import time
 
@@ -61,3 +62,37 @@ def test_el_backproject():
     x_s2 = obs.np_el_backproject_all(x_e, mu, Ainv)
 
     assert np.allclose(x_s, x_s2.squeeze())
+
+
+def test_th_np_nearestd():
+    # Compare the numpy and theano implementations.
+
+    K = 5
+    D = 3
+    Q = 100
+    U = 10
+    mu = np.random.normal(loc=0., scale=3., size=(K, D))
+    dd = np.random.normal(loc=0., scale=5., size=(K, D, D * 2))
+    cov = []
+    for d in dd:
+        cov.append(np.cov(d))
+    cov = np.array(cov)
+    covAinv = np.linalg.inv(np.linalg.cholesky(cov))
+
+    # Compute the numpy version.
+    xx = np.random.uniform(-6., 6., size=(Q, U, D))
+    x1 = xx[1:]
+    x2 = xx[:-1]
+    np_d = obs.np_el_nearestd(x1=x1.reshape(-1, D), x2=x2.reshape(-1, D), mu=mu, Ainv=covAinv)
+
+    # Compute the theano version.
+    tt_x1 = tt.dmatrix('x1')
+    tt_x2 = tt.dmatrix('x2')
+    tt_mu = tt.constant(mu)
+    tt_covAinv = tt.constant(covAinv)
+    tt_f = obs.th_el_nearestd(x1=tt_x1, x2=tt_x2, mu=tt_mu, Ainv=tt_covAinv)
+    f = th.function(inputs=[tt_x1, tt_x2], outputs=tt_f, mode=th.compile.FAST_COMPILE)
+    th_d = f(x1.reshape(-1, D), x2.reshape(-1, D))
+
+    assert np.allclose(np_d, th_d)
+

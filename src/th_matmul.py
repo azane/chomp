@@ -6,7 +6,7 @@ import numpy as np
 #  https://stackoverflow.com/questions/42169776/numpy-matmul-in-theano
 
 
-def matmul(a: tt.TensorType, b: tt.TensorType, _left=False):
+def matmul(a: tt.TensorType, b: tt.TensorType, _left=False) -> tt.TensorVariable:
     """Replicates the functionality of numpy.matmul, except that
     the two tensors must have the same number of dimensions, and their ndim must exceed 1."""
 

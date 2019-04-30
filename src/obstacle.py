@@ -88,6 +88,66 @@ def f_gm_obstacle_cost(x: tt.TensorVariable, mu: tt.TensorConstant, prec: tt.Ten
 # This is essentially a generalization of the above, but we compute the cost in actual distance space.
 # Further, we compute the point of closest approach along a line between two points, and use that distance.
 
+
+def th_el_backproject_all(x: tt.TensorVariable,
+                          mu: tt.TensorConstant,
+                          Ainv: tt.TensorConstant) -> tt.TensorVariable:
+    # See numpy version for info/comments.
+
+    x = x.dimshuffle(0, 'x', 1) - mu.dimshuffle('x', 0, 1)  # (N, K, D)
+    x = matmul(Ainv.dimshuffle('x', 0, 1, 2), x.dimshuffle(0, 1, 2, 'x'))  # (1, K, D, D) . (N, K, D, 1)
+    x = x.dimshuffle(0, 1, 2)  # (N, K, D)
+    return x
+
+    # x = x[:, None, :] - mu[None, :, :]  # (N, K, D)
+    # x = np.matmul(Ainv[None, ...], x[..., None])  # (1, K, D, D) . (N, K, D, 1)
+    # x = x.squeeze(-1)  # (N, K, D)
+    # return x
+
+
+def tt_el_nearestd(x1: tt.TensorVariable, x2: tt.TensorVariable,
+                   mu: tt.TensorConstant, Ainv: tt.TensorConstant) -> tt.TensorVariable:
+    # See numpy version for info/comments.
+
+    D = x1.shape[1]
+
+    x1g = th_el_backproject_all(x1, mu, Ainv)  # (N, K, D)
+    x2g = th_el_backproject_all(x2, mu, Ainv)
+
+    x1gf = x1g.reshape((-1, D))
+    x2gf = x2g.reshape((-1, D))
+    # x1gf = x1g.reshape(-1, D)
+    # x2gf = x2g.reshape(-1, D)
+
+    diff = x2gf - x1gf
+    num = -matmul(x1gf.dimshuffle(0, 'x', 1), diff.dimshuffle(0, 'x', 1)).squeeze()
+    # num = -np.matmul(x1gf[..., None, :], diff[..., :, None]).squeeze()
+    den = matmul(diff.dimshuffle(0, 'x', 1), diff.dimshuffle(0, 1, 'x')).squeeze()
+    # den = np.matmul(diff[..., None, :], diff[..., :, None]).squeeze()
+
+    t = num / den  # type: tt.TensorVariable
+
+    tneg = t < 0
+    tbig = t > tt.sqrt(den)
+    # tbig = t > np.sqrt(den)
+    tout = tt.or_(tneg, tbig)
+    # tout = np.logical_or(tneg, tbig)
+    t[tout] *= tout / abs(tout)
+    t[tout] *= np.inf
+    # TODO instead of setting distance to inf if no intersection, the distance needs to be the
+    # TODO  hypotenuse of the triangle formed by the obstacle, the line segment end nearer
+    # TODO  to the point of intersection, and the point of intersection.
+    # TODO this will be the line between the line segment end nearer to the point
+    # TODO  of intersection and the obstacle.
+
+    d_ = x1gf + diff * t.dimshuffle(0, 'x')
+    d = tt.sqrt(tt.sum(d_ * d_, axis=1, keepdims=True)) # type: tt.TensorVariable
+    # d = np.linalg.norm(x1gf + diff * t[:, None], axis=1)
+    d = d.reshape(x1g.shape[:-1])  # (N, K)
+    return tt.min(d, axis=1)  # (N,)
+    # return np.min(d, axis=1)
+
+
 def np_el_backproject_all(x, mu, Ainv):
     # Project the points in x back to each ellipse. This essentially moves
     #  from an elliptical gaussian to a spherical gaussian in std units.
@@ -103,7 +163,7 @@ def np_el_backproject_all(x, mu, Ainv):
 def np_el_nearestd(x1, x2, mu, Ainv):
     # Compute the distance of closest approach between each pair of points in
     #  x1 and x2. Return only the distance to the closest obstacle along each line.
-    # This distance is in standard deviation units.
+    # NOTE: This distance is in standard deviation units.
 
     # Other assertions are handled in np_el_backproject
     D = x1.shape[1]
@@ -126,6 +186,7 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     t = num / den
 
     # If t is negative, or greater than diff, this point is out of bounds.
+    # i.e. check if the point of approach is within the line segment.
     tneg = t < 0
     tbig = t > np.sqrt(den)
     tout = np.logical_or(tneg, tbig)
@@ -134,7 +195,5 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     d = np.linalg.norm(x1gf + diff*t[:, None], axis=1)
     d = d.reshape(x1g.shape[:-1])  # (N, K)
     return np.min(d, axis=1)
-
-# TODO make theano versions of the above and use as our obstacle obstacle distance computation for CHOMP.
 
 # <Elliptical Obstacle Distance Field>

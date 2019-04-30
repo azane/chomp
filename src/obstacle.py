@@ -1,6 +1,7 @@
 import numpy as np
 import theano as th
 import theano.tensor as tt
+import theano.ifelse as thc
 from src.th_matmul import matmul
 
 # Code defining obstacle cost functions, distance fields, etc.
@@ -216,30 +217,45 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     d = d.reshape(x1g.shape[:-1])  # (N, K)
     return np.min(d, axis=1)
 
-def th_gm_closest_obstacle_cost_wrap(mu: tt.TensorConstant, prec: tt.TensorConstant):
 
-    def wrap(x: tt.TensorVariable):
-        # Flatten all but the last dimension.
-        x_ = x.reshape(shape=(-1, x.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
+def th_el_nearestd_signed_wrap(mu: tt.TensorConstant, Ainv: tt.TensorConstant, dthresh=2.0):
 
-        # Get result and select closest obstacle (one with the "worst" objective value.
-        res = th_gm_obstacle_cost(x_, mu, prec)  # .shape == (Q*U, K)
-        res = tt.max(res, axis=-1)  # .shape == (Q*U,)
+    def wrap(x1: tt.TensorVariable, x2: tt.TensorVariable):
+        x1_ = x1.reshape(shape=(-1, x1.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
+        x2_ = x1.reshape(shape=(-1, x2.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
 
-        # Restore original shape, but without workspace dimension axis (the last one)
-        return res.reshape(shape=(x.shape[:-1]), ndim=x.ndim-1)  # .shape == (Q, U)
+        d = th_el_nearestd(x1=x1_, x2=x2_, mu=mu, Ainv=Ainv)  # .shape == (Q*U,)
+        # Sign the distance field.
+        sdf = d - dthresh
+
+        return sdf.reshape(shape=(x1.shape[:-1]))  # .shape == (Q, U)
 
     return wrap
 
 
-def f_gm_obstacle_cost(x: tt.TensorVariable, mu: tt.TensorConstant, prec: tt.TensorConstant):
-    return th.function([x], th_gm_obstacle_cost(x, mu, prec))
+def th_el_distance_field_cost(x1: tt.TensorVariable, x2: tt.TensorVariable,
+                              mu: tt.TensorConstant, Ainv: tt.TensorConstant,
+                              dthresh=2.0, eps=0.1):
+    return th_distance_field_cost(th_el_nearestd_signed_wrap(mu, Ainv, dthresh)(x1, x2), eps)
 
 # <Elliptical Obstacle Distance Field>
 
 
 # <Cost by Distance Field>
 
-def th_distance_cost(d: tt.TensorVariable, eps: tt.TensorConstant):
-    pass
+def th_distance_field_cost(sdf: tt.TensorVariable, eps: float):
+    # Signed distance field cost function, as presented in paper.
+
+    # Given a signed distance field, and an epsilon distance, compute the obstacle cost.
+    sdneg = sdf < 0
+    sdeps = tt.and_(0 <= sdf, sdf <= eps)
+    # sdclr = eps < sdf
+
+    sdneg_v = -sdf + .5*eps
+    sdeps_v = .5*eps**-1.*(sdf - eps)**2.
+    # sdclr_v = 0.
+
+    # Again, not ideal to "index" this way (cz compute everything), but easy with theano.
+    return sdneg_v * sdneg + sdeps_v * sdeps  # + sdclr_v * sdclr
+
 # </Cost by Distance Field>

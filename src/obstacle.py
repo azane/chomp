@@ -190,9 +190,21 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     tneg = t < 0
     tbig = t > np.sqrt(den)
     tout = np.logical_or(tneg, tbig)
-    t[tout] = np.inf
+    tin = np.logical_not(tout)
+    # These should be mutually exclusive.
+    assert np.all((tin.astype(int) + tneg.astype(int) + tbig.astype(int)) < 2)
+    # If point of nearest approach is outside the line segment, we want to measure
+    #  the distance from the nearer endpoint to the obstacle.
+    # If tneg, we want distance from x1 to obstacle.
+    # If tbig, we want distance from x2 to obtacle.
+    # If neither, we want distance from point of approach to obstacle.
+    # (I use this kind of "indexing" cz it's easy in theano,
+    #  obvi this is sub-optimal performance-wise)
+    dpoa = np.linalg.norm(x1gf + diff*t[:, None], axis=1) * tin
+    dx1 = np.linalg.norm(x1gf, axis=1) * tneg
+    dx2 = np.linalg.norm(x2gf, axis=1) * tout
 
-    d = np.linalg.norm(x1gf + diff*t[:, None], axis=1)
+    d = dpoa + dx1 + dx2
     d = d.reshape(x1g.shape[:-1])  # (N, K)
     return np.min(d, axis=1)
 

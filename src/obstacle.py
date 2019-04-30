@@ -132,20 +132,20 @@ def th_el_nearestd(x1: tt.TensorVariable, x2: tt.TensorVariable,
     # tbig = t > np.sqrt(den)
     tout = tt.or_(tneg, tbig)
     # tout = np.logical_or(tneg, tbig)
-    t += tout * np.finfo(np.float64).max  # 0 * inf == nan, but apparently 0 * inf + 1 = inf...HACK
-    # t[tout] = np.inf
-    # TODO instead of setting distance to inf if no intersection, the distance needs to be the
-    # TODO  hypotenuse of the triangle formed by the obstacle, the line segment end nearer
-    # TODO  to the point of intersection, and the point of intersection.
-    # TODO this will be the line between the line segment end nearer to the point
-    # TODO  of intersection and the obstacle.
+    tin = ~tout
+    # tin = np.logical_not(tout)
 
     d_ = x1gf + diff * t.dimshuffle(0, 'x')
-    d = tt.sqrt(tt.sum(d_ * d_, axis=1, keepdims=True)) # type: tt.TensorVariable
-    # d = np.linalg.norm(x1gf + diff * t[:, None], axis=1)
+    dpoa = tt.sqrt(tt.sum(d_ * d_, axis=1, keepdims=True)).squeeze() * tin
+    # dpoa = np.linalg.norm(x1gf + diff * t[:, None], axis=1) * tin
+    dx1 = tt.sqrt(tt.sum(x1gf * x1gf, axis=1, keepdims=True)).squeeze() * tneg
+    # dx1 = np.linalg.norm(x1gf, axis=1) * tneg
+    dx2 = tt.sqrt(tt.sum(x2gf * x2gf, axis=1, keepdims=True)).squeeze() * tbig
+    # dx2 = np.linalg.norm(x2gf, axis=1) * tbig
+
+    d = dpoa + dx1 + dx2
     d = d.reshape(x1g.shape[:-1])  # (N, K)
     return tt.min(d, axis=1)  # (N,)
-    # return np.min(d, axis=1)
 
 
 def np_el_backproject_all(x, mu, Ainv):
@@ -191,8 +191,10 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     tbig = t > np.sqrt(den)
     tout = np.logical_or(tneg, tbig)
     tin = np.logical_not(tout)
+
     # These should be mutually exclusive.
-    assert np.all((tin.astype(int) + tneg.astype(int) + tbig.astype(int)) < 2)
+    # assert np.all((tin.astype(int) + tneg.astype(int) + tbig.astype(int)) < 2)
+
     # If point of nearest approach is outside the line segment, we want to measure
     #  the distance from the nearer endpoint to the obstacle.
     # If tneg, we want distance from x1 to obstacle.
@@ -202,7 +204,7 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     #  obvi this is sub-optimal performance-wise)
     dpoa = np.linalg.norm(x1gf + diff*t[:, None], axis=1) * tin
     dx1 = np.linalg.norm(x1gf, axis=1) * tneg
-    dx2 = np.linalg.norm(x2gf, axis=1) * tout
+    dx2 = np.linalg.norm(x2gf, axis=1) * tbig
 
     d = dpoa + dx1 + dx2
     d = d.reshape(x1g.shape[:-1])  # (N, K)

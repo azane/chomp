@@ -90,6 +90,9 @@ def test_th_np_nearestd():
     tt_x2 = tt.dmatrix('x2')
     tt_mu = tt.constant(mu)
     tt_covAinv = tt.constant(covAinv)
+    th.config.compute_test_value = 'warn'
+    tt_x1.tag.test_value = x1.reshape(-1, D)
+    tt_x2.tag.test_value = x2.reshape(-1, D)
     tt_f = obs.th_el_nearestd(x1=tt_x1, x2=tt_x2, mu=tt_mu, Ainv=tt_covAinv)
     f = th.function(inputs=[tt_x1, tt_x2], outputs=tt_f, mode=th.compile.FAST_COMPILE)
     th_d = f(x1.reshape(-1, D), x2.reshape(-1, D))

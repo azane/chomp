@@ -105,7 +105,7 @@ def th_el_backproject_all(x: tt.TensorVariable,
     # return x
 
 
-def tt_el_nearestd(x1: tt.TensorVariable, x2: tt.TensorVariable,
+def th_el_nearestd(x1: tt.TensorVariable, x2: tt.TensorVariable,
                    mu: tt.TensorConstant, Ainv: tt.TensorConstant) -> tt.TensorVariable:
     # See numpy version for info/comments.
 
@@ -120,7 +120,7 @@ def tt_el_nearestd(x1: tt.TensorVariable, x2: tt.TensorVariable,
     # x2gf = x2g.reshape(-1, D)
 
     diff = x2gf - x1gf
-    num = -matmul(x1gf.dimshuffle(0, 'x', 1), diff.dimshuffle(0, 'x', 1)).squeeze()
+    num = -matmul(x1gf.dimshuffle(0, 'x', 1), diff.dimshuffle(0, 1, 'x')).squeeze()
     # num = -np.matmul(x1gf[..., None, :], diff[..., :, None]).squeeze()
     den = matmul(diff.dimshuffle(0, 'x', 1), diff.dimshuffle(0, 1, 'x')).squeeze()
     # den = np.matmul(diff[..., None, :], diff[..., :, None]).squeeze()
@@ -132,8 +132,8 @@ def tt_el_nearestd(x1: tt.TensorVariable, x2: tt.TensorVariable,
     # tbig = t > np.sqrt(den)
     tout = tt.or_(tneg, tbig)
     # tout = np.logical_or(tneg, tbig)
-    t[tout] *= tout / abs(tout)
-    t[tout] *= np.inf
+    t += tout * np.finfo(np.float64).max  # 0 * inf == nan, but apparently 0 * inf + 1 = inf...HACK
+    # t[tout] = np.inf
     # TODO instead of setting distance to inf if no intersection, the distance needs to be the
     # TODO  hypotenuse of the triangle formed by the obstacle, the line segment end nearer
     # TODO  to the point of intersection, and the point of intersection.

@@ -163,7 +163,7 @@ def np_el_backproject_all(x, mu, Ainv):
 def np_el_nearestd(x1, x2, mu, Ainv):
     # Compute the distance of closest approach between each pair of points in
     #  x1 and x2. Return only the distance to the closest obstacle along each line.
-    # NOTE: This distance is in standard deviation units.
+    # NOTE: This distance is in standard deviation units (see TODO below)
 
     # Other assertions are handled in np_el_backproject
     D = x1.shape[1]
@@ -202,6 +202,12 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     # If neither, we want distance from point of approach to obstacle.
     # (I use this kind of "indexing" cz it's easy in theano,
     #  obvi this is sub-optimal performance-wise)
+    # TODO Compute signed distance field in actual distance space, not standard normal.
+    # TODO 1. get point in standard normal space.
+    # TODO 2. dp = distance from origin of A.dot(standard normal point)
+    # TODO 3. db = distance from origin of A.dot(standard normal point scaled to e.g. 2.1)
+    # TODO    this gets us the point at the surface of the elliptical obstacle.
+    # TODO 4. return norm(dp - db)
     dpoa = np.linalg.norm(x1gf + diff*t[:, None], axis=1) * tin
     dx1 = np.linalg.norm(x1gf, axis=1) * tneg
     dx2 = np.linalg.norm(x2gf, axis=1) * tbig
@@ -210,4 +216,30 @@ def np_el_nearestd(x1, x2, mu, Ainv):
     d = d.reshape(x1g.shape[:-1])  # (N, K)
     return np.min(d, axis=1)
 
+def th_gm_closest_obstacle_cost_wrap(mu: tt.TensorConstant, prec: tt.TensorConstant):
+
+    def wrap(x: tt.TensorVariable):
+        # Flatten all but the last dimension.
+        x_ = x.reshape(shape=(-1, x.shape[-1]), ndim=2)  # (Q, U, D) => (Q*U, D)
+
+        # Get result and select closest obstacle (one with the "worst" objective value.
+        res = th_gm_obstacle_cost(x_, mu, prec)  # .shape == (Q*U, K)
+        res = tt.max(res, axis=-1)  # .shape == (Q*U,)
+
+        # Restore original shape, but without workspace dimension axis (the last one)
+        return res.reshape(shape=(x.shape[:-1]), ndim=x.ndim-1)  # .shape == (Q, U)
+
+    return wrap
+
+
+def f_gm_obstacle_cost(x: tt.TensorVariable, mu: tt.TensorConstant, prec: tt.TensorConstant):
+    return th.function([x], th_gm_obstacle_cost(x, mu, prec))
+
 # <Elliptical Obstacle Distance Field>
+
+
+# <Cost by Distance Field>
+
+def th_distance_cost(d: tt.TensorVariable, eps: tt.TensorConstant):
+    pass
+# </Cost by Distance Field>

@@ -71,6 +71,7 @@ def test_th_np_nearestd():
     D = 3
     Q = 100
     U = 10
+
     mu = np.random.normal(loc=0., scale=3., size=(K, D))
     dd = np.random.normal(loc=0., scale=5., size=(K, D, D * 2))
     cov = []
@@ -98,4 +99,12 @@ def test_th_np_nearestd():
     th_d = f(x1.reshape(-1, D), x2.reshape(-1, D))
 
     assert np.allclose(np_d, th_d)
+
+    for _ in range(10):
+        xx = np.random.uniform(-6., 6., size=(Q, U, D))
+        x1 = xx[1:]
+        x2 = xx[:-1]
+        np_d = obs.np_el_nearestd(x1=x1.reshape(-1, D), x2=x2.reshape(-1, D), mu=mu, Ainv=covAinv)
+        th_d = f(x1.reshape(-1, D), x2.reshape(-1, D))
+        assert np.allclose(np_d, th_d)
 

@@ -114,27 +114,3 @@ def unzero_6dof(q: np.ndarray):
     return np.hstack((q[:, :3], ax * theta))
 
 # </Theano 6DOF Kinematics>
-
-
-# <Ackerman 3DOF 2d Kinematics>
-def np_ackermann(xyt: np.ndarray, a: float, rinv: float):
-    # The angle of the turn given the arc length and the radius.
-    theta_a = a*rinv
-    # The length of the chord between start and finish.
-    len_c = (2.*np.sin(theta_a/2.))/rinv
-    # The angle between the chord vector and the starting vector.
-    theta_c = np.pi - theta_a
-
-    # Find the xy of the new point.
-    dvec = np.copy(xyt)
-    dvec[-1] += theta_c
-
-    theta_t = xyt[-1] + theta_c
-
-    xy_f = xyt[:-1] + np.array(np.cos(theta_t), np.sin(theta_t))
-    xy_f *= len_c
-
-
-
-
-# </Ackerman 3DOF 2d Kinematics>

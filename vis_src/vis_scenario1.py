@@ -135,7 +135,6 @@ def update(ev):
 
         # If any angle-axes of our 6dof angle-axes are close to zero,
         #  adjust them all away.
-        # This breaks the transformation etc. etc.
         # We trigger this with enough "magnitude" to pull out a reasonable
         #  axis from the angle axis.
         if np.any(np.less(qpath[:, 3:].sum(axis=1), .2)):

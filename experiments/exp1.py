@@ -47,8 +47,8 @@ def exp1():
     # TODO HACK to get the kinematics function loaded.
     yield None
 
-    for k in range(4, 5):
-        for s in range(5, 6):
+    for k in range(4, 6):
+        for s in range(10, 11):
 
             print(f"Running: k={k}, s={s}")
 
@@ -77,6 +77,8 @@ def exp1():
 
             yield success, qn, mu, cov
             print("----------")
+
+    print("Done")
 
 
 def vis_main():

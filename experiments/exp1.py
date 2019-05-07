@@ -4,6 +4,7 @@ import theano as th
 import src.kinematics as kn
 import src.obstacle as obs
 import src.objective as obj
+import src.rrt as rrt
 import numpy as np
 from typing import *
 
@@ -63,19 +64,40 @@ def exp1():
                     break
             prec = np.linalg.inv(cov)
 
+            # <CHOMP Straight Line Init>
+
             solver = h.solve_chomp(q0straight,
                                    f_obj=lambda q_: f_obj(q_, mu, prec),
                                    fp_obj=lambda q_: fp_obj(q_, mu, prec),
                                    path_clear=path_clear)
-            qn, objv, n = next(solver)
+            cs_qn, cs_objv, n = next(solver)
             while True:
-                try: qn, objv, n = next(solver)
+                try: cs_qn, cs_objv, n = next(solver)
                 except StopIteration as e:
                     success = e.value
                     break
-                print(f"{n}: {objv}")
+                print(f"{n}: {cs_objv}")
 
-            yield success, qn, mu, cov
+            cs_results = (success, cs_qn)
+
+            # </CHOMP Straight Line Init>
+
+            # <RRT>
+            rrt_bounds = [(-h.BBOX, h.BBOX)] * 3 + [(-.006 * np.pi, .006 * np.pi)] * 3
+            rrt_planner = rrt.RRT_GM6DOF(mu=mu, cov=cov, u=ttu,
+                                         start=q0straight[0], goal=q0straight[-1],
+                                         bounds=rrt_bounds)
+            rr_n = 0
+            rr_qn = None  # type: np.ndarray
+            while not rrt_planner.done and not rr_n > 300:
+                rr_qn = rrt_planner.plan()
+                rr_n += 1
+
+            rr_results = (rrt_planner.done, rr_qn)
+
+            # </RRT>
+
+            yield success, cs_qn, mu, cov
             print("----------")
 
     print("Done")
@@ -85,6 +107,7 @@ def vis_main():
     import sys
     import vispy.scene
     import vispy.app
+    import vispy.visuals
     from vis_src.ellipse import Ellipse
     import time
 

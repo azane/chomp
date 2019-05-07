@@ -16,6 +16,8 @@ U = h.U
 
 q = tt.dmatrix('q')
 u = h.get_L_3d_robot()
+# from experiments.helpers import get_L_3d_const_robot
+# u = get_L_3d_const_robot()
 qpath = h.get_6dof_straight_path()
 
 SCALE = 1

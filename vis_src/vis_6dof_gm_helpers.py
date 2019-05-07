@@ -11,6 +11,17 @@ Q = 50
 dpath = os.path.join(os.path.dirname(__file__), '..', 'data')
 
 
+def get_L_3d_const_robot() -> tt.TensorConstant:
+    # Return an L-shaped robot, but not randomly.
+    U_ = 10
+    x = np.ones((U_, 2))* np.linspace(0, 8, U_)[:, None]
+    y = np.copy(x)
+    x[:, 0] = 0
+    y[:, 1] = 0
+
+    return
+
+
 def get_L_3d_robot() -> tt.TensorConstant:
 
     assert U % 2 == 0

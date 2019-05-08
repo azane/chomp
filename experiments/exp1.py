@@ -52,8 +52,8 @@ def exp1():
 
     # KK = list(range(8,16))
     # SS = [10, 12, 14, 18, 20, 22]
-    KK = [15]
-    SS = [15]
+    KK = [10]
+    SS = [11]
 
     cs_objv_arr = np.zeros((len(KK), len(SS)))
     cr_objv_arr = np.zeros((len(KK), len(SS)))
@@ -87,7 +87,7 @@ def exp1():
             cs_solver = h.solve_chomp(q0straight,
                                       f_obj=lambda q_: f_obj(q_, mu, prec),
                                       fp_obj=lambda q_: fp_obj(q_, mu, prec),
-                                      path_clear=path_clear, miniter=74)
+                                      path_clear=path_clear, miniter=50)
             cs_qn, cs_objv, n = next(cs_solver)
             while True:
                 try: cs_qn, cs_objv, n = next(cs_solver)
@@ -109,7 +109,7 @@ def exp1():
                                          bounds=rrt_bounds)
             rr_n = 0
             rr_qn = None  # type: np.ndarray
-            while not rrt_planner.done and not rr_n > 300:
+            while not rrt_planner.done and not rr_n > 1000:
                 rr_qn = rrt_planner.plan()
                 rr_n += 1
 
@@ -119,24 +119,24 @@ def exp1():
 
             # <CHOMP RRT Init>
             print("CHOMP-RRT Init")
-            if rrt_planner.done:
-                cr_qn0 = h.chomp_path_from_rrt(rr_qn)
-                cr_solver = h.solve_chomp(cr_qn0,
-                                          f_obj=lambda q_: f_obj(q_, mu, prec),
-                                          fp_obj=lambda q_: fp_obj(q_, mu, prec),
-                                          path_clear=path_clear, miniter=74)
-                cr_qn, cr_objv, n = next(cr_solver)
-                while True:
-                    try:
-                        cr_qn, cr_objv, n = next(cr_solver)
-                    except StopIteration as e:
-                        cr_success = e.value
-                        break
-                    print(f"{n}: {cr_objv}")
-            else:
-                cr_objv = np.inf
-                cr_success = False
-                cr_qn = None
+            # if rrt_planner.done:
+            cr_qn0 = h.chomp_path_from_rrt(rr_qn)
+            cr_solver = h.solve_chomp(cr_qn0,
+                                      f_obj=lambda q_: f_obj(q_, mu, prec),
+                                      fp_obj=lambda q_: fp_obj(q_, mu, prec),
+                                      path_clear=path_clear, miniter=50)
+            cr_qn, cr_objv, n = next(cr_solver)
+            while True:
+                try:
+                    cr_qn, cr_objv, n = next(cr_solver)
+                except StopIteration as e:
+                    cr_success = e.value
+                    break
+                print(f"{n}: {cr_objv}")
+            # else:
+            #     cr_objv = np.inf
+            #     cr_success = False
+            #     cr_qn = None
 
             cr_objv_arr[ki, si] = cr_objv if cr_success else np.nan
             cr_results = (cr_success, cr_qn)
@@ -147,36 +147,36 @@ def exp1():
             print("----------")
 
 
-    # Save results
-    f = plt.figure()
-    plt.ylabel("Number of Obstacles")
-    plt.xlabel("Radius of Obstacles")
-    f.suptitle("CHOMP-Straight Line Init\nObjective After 74 Iterations")
-    im = plt.imshow(cs_objv_arr)
-    plt.yticks(KK)
-    plt.xticks(SS)
-    plt.colorbar(im)
-    plt.savefig(f"./cs_obj.png", bbox_inches='tight')
-
-    f = plt.figure()
-    plt.ylabel("Number of Obstacles")
-    plt.xlabel("Radius of Obstacles")
-    f.suptitle("CHOMP-RRT Path Init\nObjective After 74 Iterations")
-    im = plt.imshow(cr_objv_arr)
-    plt.yticks(KK)
-    plt.xticks(SS)
-    plt.colorbar(im)
-    plt.savefig(f"./cr_obj.png", bbox_inches='tight')
-
-    f = plt.figure()
-    plt.ylabel("Number of Obstacles")
-    plt.xlabel("Radius of Obstacles")
-    f.suptitle("CHOMP-Straight Path vs. RRT Path\nObjective  Ratio After 74 Iterations")
-    im = plt.imshow(cs_objv_arr / cr_objv_arr)
-    plt.yticks(KK)
-    plt.xticks(SS)
-    plt.colorbar(im)
-    plt.savefig(f"./cscr_ratio.png", bbox_inches='tight')
+    # # Save results
+    # f = plt.figure()
+    # plt.ylabel("Number of Obstacles")
+    # plt.xlabel("Radius of Obstacles")
+    # f.suptitle("CHOMP-Straight Line Init\nObjective After 74 Iterations")
+    # im = plt.imshow(cs_objv_arr)
+    # plt.yticks(KK)
+    # plt.xticks(SS)
+    # plt.colorbar(im)
+    # plt.savefig(f"./cs_obj.png", bbox_inches='tight')
+    #
+    # f = plt.figure()
+    # plt.ylabel("Number of Obstacles")
+    # plt.xlabel("Radius of Obstacles")
+    # f.suptitle("CHOMP-RRT Path Init\nObjective After 74 Iterations")
+    # im = plt.imshow(cr_objv_arr)
+    # plt.yticks(KK)
+    # plt.xticks(SS)
+    # plt.colorbar(im)
+    # plt.savefig(f"./cr_obj.png", bbox_inches='tight')
+    #
+    # f = plt.figure()
+    # plt.ylabel("Number of Obstacles")
+    # plt.xlabel("Radius of Obstacles")
+    # f.suptitle("CHOMP-Straight Path vs. RRT Path\nObjective  Ratio After 74 Iterations")
+    # im = plt.imshow(cs_objv_arr / cr_objv_arr)
+    # plt.yticks(KK)
+    # plt.xticks(SS)
+    # plt.colorbar(im)
+    # plt.savefig(f"./cscr_ratio.png", bbox_inches='tight')
 
     print("Done")
 

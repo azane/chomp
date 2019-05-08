@@ -30,8 +30,7 @@ def exp1():
     # Obstacle function.
     ttmu = tt.dmatrix('mu')
     ttprec = tt.dtensor3('prec')
-    # cf = obs.th_gm_closest_obstacle_cost_wrap(ttmu, ttprec)
-    cf = obs.th_gm_obstacle_cost_wrap(ttmu, ttprec)
+    cf = obs.th_gm_closest_obstacle_cost_wrap(ttmu, ttprec)
     # f_cf = th.function(inputs=[ttq, ttmu, ttprec], outputs=cf(xf(ttq, ttu)), mode=th.compile.FAST_RUN)
 
     # Smoothness objective.
@@ -50,7 +49,7 @@ def exp1():
     # TODO HACK to get the kinematics function loaded.
     yield None
 
-    for k in range(8, 9):
+    for k in range(8, 10):
         for s in range(10, 11):
 
             print(f"Running: k={k}, s={s}")
@@ -77,7 +76,7 @@ def exp1():
             cs_solver = h.solve_chomp(q0straight,
                                       f_obj=lambda q_: f_obj(q_, mu, prec),
                                       fp_obj=lambda q_: fp_obj(q_, mu, prec),
-                                      path_clear=path_clear)
+                                      path_clear=path_clear, miniter=74)
             cs_qn, cs_objv, n = next(cs_solver)
             while True:
                 try: cs_qn, cs_objv, n = next(cs_solver)
@@ -92,7 +91,7 @@ def exp1():
 
             # <RRT>
             print("RRT")
-            rrt_bounds = [(-h.BBOX, h.BBOX)] * 3 + [(-.0001 * np.pi, .0001 * np.pi)] * 3
+            rrt_bounds = [(-h.BBOX, h.BBOX)] * 3 + [(0., 0.)] * 3
             rrt_planner = rrt.RRT_GM6DOF(mu=mu, cov=cov, u=ttu,
                                          start=q0straight[0], goal=q0straight[-1],
                                          bounds=rrt_bounds)
@@ -108,13 +107,11 @@ def exp1():
 
             # <CHOMP RRT Init>
             print("CHOMP-RRT Init")
-            print(rr_qn[:, :3])
             cr_qn0 = h.chomp_path_from_rrt(rr_qn)
-            print(cr_qn0[:, :3])
             cr_solver = h.solve_chomp(cr_qn0,
                                       f_obj=lambda q_: f_obj(q_, mu, prec),
                                       fp_obj=lambda q_: fp_obj(q_, mu, prec),
-                                      path_clear=path_clear, miniter=50)
+                                      path_clear=path_clear, miniter=74)
             cr_qn, cr_objv, n = next(cr_solver)
             while True:
                 try:

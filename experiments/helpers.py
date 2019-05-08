@@ -7,7 +7,7 @@ from typing import *
 
 U = 20
 D = 3
-Q = 50
+Q = 70
 BBOX = 60.
 
 

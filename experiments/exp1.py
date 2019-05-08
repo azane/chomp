@@ -6,6 +6,7 @@ import src.obstacle as obs
 import src.objective as obj
 import src.rrt as rrt
 import numpy as np
+import matplotlib.pyplot as plt
 from typing import *
 
 
@@ -49,8 +50,18 @@ def exp1():
     # TODO HACK to get the kinematics function loaded.
     yield None
 
-    for k in range(8, 10):
-        for s in range(10, 11):
+    # KK = list(range(8,16))
+    # SS = [10, 12, 14, 18, 20, 22]
+    KK = [15]
+    SS = [15]
+
+    cs_objv_arr = np.zeros((len(KK), len(SS)))
+    cr_objv_arr = np.zeros((len(KK), len(SS)))
+
+    for ki in range(len(KK)):
+        k = KK[ki]
+        for si in range(len(SS)):
+            s = SS[si]
 
             print(f"Running: k={k}, s={s}")
 
@@ -85,6 +96,7 @@ def exp1():
                     break
                 print(f"{n}: {cs_objv}")
 
+            cs_objv_arr[ki, si] = cs_objv if cs_success else np.nan
             cs_results = (cs_success, cs_qn)
 
             # </CHOMP Straight Line Init>
@@ -107,26 +119,64 @@ def exp1():
 
             # <CHOMP RRT Init>
             print("CHOMP-RRT Init")
-            cr_qn0 = h.chomp_path_from_rrt(rr_qn)
-            cr_solver = h.solve_chomp(cr_qn0,
-                                      f_obj=lambda q_: f_obj(q_, mu, prec),
-                                      fp_obj=lambda q_: fp_obj(q_, mu, prec),
-                                      path_clear=path_clear, miniter=74)
-            cr_qn, cr_objv, n = next(cr_solver)
-            while True:
-                try:
-                    cr_qn, cr_objv, n = next(cr_solver)
-                except StopIteration as e:
-                    cr_success = e.value
-                    break
-                print(f"{n}: {cr_objv}")
+            if rrt_planner.done:
+                cr_qn0 = h.chomp_path_from_rrt(rr_qn)
+                cr_solver = h.solve_chomp(cr_qn0,
+                                          f_obj=lambda q_: f_obj(q_, mu, prec),
+                                          fp_obj=lambda q_: fp_obj(q_, mu, prec),
+                                          path_clear=path_clear, miniter=74)
+                cr_qn, cr_objv, n = next(cr_solver)
+                while True:
+                    try:
+                        cr_qn, cr_objv, n = next(cr_solver)
+                    except StopIteration as e:
+                        cr_success = e.value
+                        break
+                    print(f"{n}: {cr_objv}")
+            else:
+                cr_objv = np.inf
+                cr_success = False
+                cr_qn = None
 
+            cr_objv_arr[ki, si] = cr_objv if cr_success else np.nan
             cr_results = (cr_success, cr_qn)
 
             # <CHOMP RRT Init>
 
             yield cs_results, rr_results, cr_results, mu, cov
             print("----------")
+
+
+    # Save results
+    f = plt.figure()
+    plt.ylabel("Number of Obstacles")
+    plt.xlabel("Radius of Obstacles")
+    f.suptitle("CHOMP-Straight Line Init\nObjective After 74 Iterations")
+    im = plt.imshow(cs_objv_arr)
+    plt.yticks(KK)
+    plt.xticks(SS)
+    plt.colorbar(im)
+    plt.savefig(f"./cs_obj.png", bbox_inches='tight')
+
+    f = plt.figure()
+    plt.ylabel("Number of Obstacles")
+    plt.xlabel("Radius of Obstacles")
+    f.suptitle("CHOMP-RRT Path Init\nObjective After 74 Iterations")
+    im = plt.imshow(cr_objv_arr)
+    plt.yticks(KK)
+    plt.xticks(SS)
+    plt.colorbar(im)
+    plt.savefig(f"./cr_obj.png", bbox_inches='tight')
+
+    f = plt.figure()
+    plt.ylabel("Number of Obstacles")
+    plt.xlabel("Radius of Obstacles")
+    f.suptitle("CHOMP-Straight Path vs. RRT Path\nObjective  Ratio After 74 Iterations")
+    im = plt.imshow(cs_objv_arr / cr_objv_arr)
+    plt.yticks(KK)
+    plt.xticks(SS)
+    plt.colorbar(im)
+    plt.savefig(f"./cscr_ratio.png", bbox_inches='tight')
 
     print("Done")
 
@@ -187,10 +237,11 @@ def vis_main():
         rr_traj.set_data(rr_qn[:, :3])
         rr_traj.update()
 
-        cr_scat.set_data(np.reshape(f_xf(cr_qn), newshape=(-1, h.D)), edge_color=cr_color, face_color=cr_color)
-        cr_scat.update()
-        cr_traj.set_data(cr_qn[:, :3])
-        cr_traj.update()
+        if cr_qn is not None:
+            cr_scat.set_data(np.reshape(f_xf(cr_qn), newshape=(-1, h.D)), edge_color=cr_color, face_color=cr_color)
+            cr_scat.update()
+            cr_traj.set_data(cr_qn[:, :3])
+            cr_traj.update()
 
         print("Viewing...")
 
@@ -247,7 +298,12 @@ def vis_main():
 
 if __name__ == "__main__":
     import sys
-    if sys.argv[1] == "--vis":
+    if len(sys.argv) == 2 and sys.argv[1] == "--vis":
         vis_main()
     else:
-        pass  # TODO
+        gen = exp1()
+        # TODO HACK to get the kinematics function loaded.
+        assert next(gen) is None
+
+        for _ in gen:
+            pass

@@ -42,7 +42,7 @@ def th_smoothness(q: tt.TensorVariable=None, w: tt.TensorConstant=None):
         q = tt.dmatrix("q")  # type: tt.TensorVariable
 
     # Backward differences.
-    dd = q[1:] - q[:-1]
+    dd = abs(q[1:] - q[:-1])
     if w is not None:
         dd = dd * w.dimshuffle('x', 0)
     y = .5 * tt.tensordot(dd, dd)

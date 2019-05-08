@@ -16,6 +16,15 @@ def th_translation_only(q: tt.TensorVariable, u: tt.TensorConstant):
     return qu
 
 
+def th_6dof_translation_only(q: tt.TensorVariable, u: tt.TensorConstant):
+    assert q.ndim == 2
+    assert u.ndim == 2
+
+    qu = q[:, None, :3] + u[None, :, :]  # .shape == (Q, U, D)
+
+    return qu
+
+
 # <Theano 6DOF Kinematics>
 # From https://en.wikipedia.org/wiki/Rotation_matrix (axis and angle conversion to rotation matrix).
 

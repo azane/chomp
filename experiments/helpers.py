@@ -7,7 +7,7 @@ from typing import *
 
 U = 20
 D = 3
-Q = 100
+Q = 50
 BBOX = 60.
 
 
@@ -43,7 +43,8 @@ def path_clear_wrap(mu, cov, f_xf):
     return wrap
 
 
-def solve_chomp(qinit, f_obj: Callable, fp_obj: Callable, path_clear: Callable, maxiter=75)\
+def solve_chomp(qinit, f_obj: Callable, fp_obj: Callable, path_clear: Callable,
+                maxiter=75, miniter=20)\
         -> Generator[Tuple[np.ndarray, float, int], None, bool]:
 
     qn = np.copy(qinit)
@@ -73,7 +74,7 @@ def solve_chomp(qinit, f_obj: Callable, fp_obj: Callable, path_clear: Callable, 
 
         yield qn, this_obj, n
 
-        if path_clear(qn):
+        if path_clear(qn) and n >= miniter:
             return True
 
     return False
@@ -97,3 +98,51 @@ def get_spheres(k: int, s: float):
     cov = np.tile(np.eye(D)*s**2., k).T.reshape(k, D, D)
 
     return mu, cov
+
+
+def chomp_path_from_rrt(q):
+
+    # Bisect the largest gaps until we have enough.
+
+    while len(q) < Q:
+        qd = q[1:] - q[:-1]
+        # Only count translation part of pose for now for distance. # TODO.
+        qd = np.linalg.norm(qd[:, :3], axis=1)
+        ql = list(q)
+        i = np.argmax(qd)  # type: int
+
+        m = np.zeros(q[i].shape)
+
+        # Midpoint of translation part of pose.
+        m[:3] = (q[i, :3] + q[i + 1, :3]) / 2.
+
+        # Extract angle from aa.
+        a1 = np.linalg.norm(q[i, 3:])
+        a2 = np.linalg.norm(q[i+1, 3:])
+
+        # Midpoint of rotation axis.
+        max = (q[i, 3:] / a1 + q[i+1, 3:] / a2) / 2.
+
+        # Midpoint of angle
+        mav1 = np.array([np.cos(a1), np.sin(a1)])
+        mav2 = np.array([np.cos(a2), np.sin(a2)])
+        mav = (mav1 + mav2)/2.
+        ma = np.arctan2(mav[1], mav[0])
+
+        m[3:] = max * ma
+
+        ql.insert(i+1, m)
+        q = np.array(ql)
+
+    # Finally, rephase the angles.
+
+    qa = np.linalg.norm(q[:, 3:], axis=1)
+    q[:, 3:] /= qa[:, None]
+    qa = np.unwrap(qa) + 2*np.pi
+    q[:, 3:] *= qa[:, None]
+
+    # TODO HACK just get rid of angle completely for now...
+    q[:, 3:] = 1.
+
+
+    return q

@@ -86,10 +86,14 @@ class RRT_GM6DOF(object):
         # Get the index of the closest node. This is the proposed parent.
         pi = np.argmin(dd)
         # Retrieve the parent point.
-        xp = self.nodes[pi]
+        xp = np.copy(self.nodes[pi])
+
         # Increment the step based on the sampled angle-axis dynamics, scale by distance.
         # TODO does this make sense with AA rep? hmm...
-        xp[3:] += x[3:]*dd[pi]
+        x[3:] = xp[3:] + x[3:]*dd[pi]
+        # TODO HACK Correct axis angle degeneracy.
+        if np.linalg.norm(x[3:]) < .2:
+            x[3:] = 1.
 
         # Go from 6dof to body point-cloud in 3d.
         uu = self.f_xf(np.vstack((x[None, :], xp[None, :])))
@@ -113,4 +117,4 @@ class RRT_GM6DOF(object):
             pi = self.parents[ci]
             ci = pi
 
-        return self.nodes[xx]
+        return np.flip(self.nodes[xx], axis=0)

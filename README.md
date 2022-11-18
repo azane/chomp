@@ -5,6 +5,10 @@ An implementation of some methods described in the CHOMP paper: https://www.ri.c
 Running at least Python 3.6.3, run `pip install requirements.txt`
 I *highly* recommend using a `virtualenv` for this.
 
+# Testing
+
+Use `pytest` to execute the tests in `test_src`.
+
 # Running Instructions
 To run the comparison between straight-line initialized CHOMP vs. RRT initialized CHOMP, run:
 `PYTHONPATH=${PYTHONPATH}:PATH/TO/REPO/chomp python3 experiments/exp1.py --vis`
@@ -18,3 +22,6 @@ A successful optimization will show the "spaceship" moving along the path from s
 
 To run a visualization of the simple RRT, run:
 `PYTHONPATH=${PYTHONPATH}:PATH/TO/REPO/chomp python3 vis_src/vis_rrt.py`
+
+# Demo
+Find demo videos of planned paths [here](https://drive.google.com/drive/folders/1_R9FrfVZ1qoWnxX-Z3xxCmr2ewyz2pMS?usp=share_link).
